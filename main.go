@@ -11,6 +11,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 	followendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/follow"
 	likeendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/like"
+	playlistendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/playlist"
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
 	"github.com/yayuyokitano/eggshellver/lib/router"
@@ -45,6 +46,10 @@ func startServer() {
 	router.Handle("/like", router.Methods{
 		POST: likeendpoint.Post,
 		GET:  likeendpoint.Get,
+	})
+	router.Handle("/playlist", router.Methods{
+		POST: playlistendpoint.Post,
+		GET:  playlistendpoint.Get,
 	})
 	router.Handle("/user", router.Methods{
 		POST: userendpoint.Post,
