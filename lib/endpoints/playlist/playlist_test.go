@@ -79,13 +79,16 @@ func TestPost(t *testing.T) {
 	if w.Body.String() == "" {
 		t.Errorf("Body is empty")
 	}
-	var playlists []queries.StructuredPlaylist
+	var playlists queries.StructuredPlaylists
 	err = json.Unmarshal([]byte(w.Body.String()), &playlists)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(playlists) != 300_000 {
-		t.Errorf("Returned %d playlists, want %d", len(playlists), 300_000)
+	if len(playlists.Playlists) != 300_000 {
+		t.Errorf("Returned %d playlists, want %d", len(playlists.Playlists), 300_000)
+	}
+	if playlists.Total != 300_000 {
+		t.Errorf("Returned %d total playlists, want %d", playlists.Total, 300_000)
 	}
 
 	w = httptest.NewRecorder()
@@ -96,13 +99,16 @@ func TestPost(t *testing.T) {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
 
-	var limitedPlaylists []queries.StructuredPlaylist
+	var limitedPlaylists queries.StructuredPlaylists
 	err = json.Unmarshal([]byte(w.Body.String()), &limitedPlaylists)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(limitedPlaylists) != 10 {
-		t.Errorf("Returned %d playlists, want %d", len(limitedPlaylists), 10)
+	if len(limitedPlaylists.Playlists) != 10 {
+		t.Errorf("Returned %d playlists, want %d", len(limitedPlaylists.Playlists), 10)
+	}
+	if limitedPlaylists.Total != 300_000 {
+		t.Errorf("Returned %d total playlists, want %d", limitedPlaylists.Total, 300_000)
 	}
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
@@ -120,13 +126,16 @@ func TestPost(t *testing.T) {
 	if w.Body.String() == "" {
 		t.Errorf("Body is empty")
 	}
-	var emptyPlaylists []queries.StructuredPlaylist
+	var emptyPlaylists queries.StructuredPlaylists
 	err = json.Unmarshal([]byte(w.Body.String()), &emptyPlaylists)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(emptyPlaylists) != 0 {
-		t.Errorf("Returned %d playlists, want %d", len(emptyPlaylists), 0)
+	if len(emptyPlaylists.Playlists) != 0 {
+		t.Errorf("Returned %d playlists, want %d", len(emptyPlaylists.Playlists), 0)
+	}
+	if emptyPlaylists.Total != 0 {
+		t.Errorf("Returned %d total playlists, want %d", emptyPlaylists.Total, 0)
 	}
 
 }
@@ -153,8 +162,8 @@ func TestGet(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
-	if w.Body.String() != "[]" {
-		t.Errorf("Body is %s, want []", w.Body.String())
+	if w.Body.String() != `{"playlists":[],"total":0}` {
+		t.Errorf("Body is %s, want %s", w.Body.String(), `{"playlists":[],"total":0}`)
 	}
 
 	playlistIDs := make([]string, 0)
@@ -238,8 +247,11 @@ func TestGet(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(playlists) != 1 {
-		t.Errorf("Returned %d playlists, want %d", len(playlists), 1)
+	if len(playlists.Playlists) != 1 {
+		t.Errorf("Returned %d playlists, want %d", len(playlists.Playlists), 1)
+	}
+	if playlists.Total != 1 {
+		t.Errorf("Returned %d total playlists, want %d", playlists.Total, 1)
 	}
 	if !playlists.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
@@ -261,8 +273,11 @@ func TestGet(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(playlists2) != 2 {
-		t.Errorf("Returned %d playlists, want %d", len(playlists2), 2)
+	if len(playlists2.Playlists) != 2 {
+		t.Errorf("Returned %d playlists, want %d", len(playlists2.Playlists), 2)
+	}
+	if playlists2.Total != 2 {
+		t.Errorf("Returned %d total playlists, want %d", playlists2.Total, 2)
 	}
 	if !playlists2.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
 		t.Errorf("Expected slice to include %s", playlistIDs[0])
@@ -286,8 +301,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(limitedPlaylists) != 1 {
-		t.Errorf("Returned %d playlists, want %d", len(limitedPlaylists), 1)
+	if len(limitedPlaylists.Playlists) != 1 {
+		t.Errorf("Returned %d playlists, want %d", len(limitedPlaylists.Playlists), 1)
+	}
+	if limitedPlaylists.Total != 2 {
+		t.Errorf("Returned %d total playlists, want %d", limitedPlaylists.Total, 2)
 	}
 	if !limitedPlaylists.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
 		t.Errorf("Expected slice to include %s", playlistIDs[0])
@@ -308,8 +326,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(specifiedPlaylists) != 1 {
-		t.Errorf("Returned %d playlists, want %d", len(specifiedPlaylists), 1)
+	if len(specifiedPlaylists.Playlists) != 1 {
+		t.Errorf("Returned %d playlists, want %d", len(specifiedPlaylists.Playlists), 1)
+	}
+	if specifiedPlaylists.Total != 1 {
+		t.Errorf("Returned %d total playlists, want %d", specifiedPlaylists.Total, 1)
 	}
 	if !specifiedPlaylists.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))

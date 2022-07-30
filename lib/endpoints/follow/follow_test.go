@@ -106,13 +106,16 @@ func TestPost(t *testing.T) {
 		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
 	}
 
-	var follows []queries.StructuredFollow
+	var follows queries.StructuredFollows
 	err = json.Unmarshal([]byte(w.Body.String()), &follows)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(follows) != 5 {
-		t.Errorf("Returned %d liked tracks, want %d", len(follows), 5)
+	if len(follows.Follows) != 5 {
+		t.Errorf("Returned %d liked tracks, want %d", len(follows.Follows), 5)
+	}
+	if follows.Total != 5 {
+		t.Errorf("Returned %d total, want %d", follows.Total, 5)
 	}
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
@@ -130,13 +133,16 @@ func TestPost(t *testing.T) {
 	if w.Body.String() == "" {
 		t.Errorf("Body is empty")
 	}
-	var emptyFollows []queries.StructuredFollow
+	var emptyFollows queries.StructuredFollows
 	err = json.Unmarshal([]byte(w.Body.String()), &emptyFollows)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(emptyFollows) != 0 {
-		t.Errorf("Returned %d liked tracks, want %d", len(emptyFollows), 0)
+	if len(emptyFollows.Follows) != 0 {
+		t.Errorf("Returned %d liked tracks, want %d", len(emptyFollows.Follows), 0)
+	}
+	if emptyFollows.Total != 0 {
+		t.Errorf("Returned %d total, want %d", emptyFollows.Total, 0)
 	}
 
 }
@@ -164,8 +170,8 @@ func TestGet(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
-	if w.Body.String() != "[]" {
-		t.Errorf("Body is %s, want []", w.Body.String())
+	if w.Body.String() != `{"follows":[],"total":0}` {
+		t.Errorf("Body is %s, want %s", w.Body.String(), `{"follows":[],"total":0}`)
 	}
 
 	followeeIDs := []string{"1", "2"}
@@ -237,8 +243,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(follows) != 2 {
-		t.Errorf("Returned %d following users, want %d", len(follows), 2)
+	if len(follows.Follows) != 2 {
+		t.Errorf("Returned %d following users, want %d", len(follows.Follows), 2)
+	}
+	if follows.Total != 2 {
+		t.Errorf("Returned %d total following users, want %d", follows.Total, 2)
 	}
 	if !follows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
@@ -262,8 +271,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(limitedFollows) != 1 {
-		t.Errorf("Returned %d following users, want %d", len(limitedFollows), 1)
+	if len(limitedFollows.Follows) != 1 {
+		t.Errorf("Returned %d following users, want %d", len(limitedFollows.Follows), 1)
+	}
+	if limitedFollows.Total != 2 {
+		t.Errorf("Returned %d total following users, want %d", limitedFollows.Total, 2)
 	}
 	if !limitedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) && !limitedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID2")) {
 		t.Errorf("Expected slice to include %s or %s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"))
@@ -284,8 +296,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(follows2) != 1 {
-		t.Errorf("Returned %d liking users, want %d", len(follows2), 1)
+	if len(follows2.Follows) != 1 {
+		t.Errorf("Returned %d liking users, want %d", len(follows2.Follows), 1)
+	}
+	if follows2.Total != 1 {
+		t.Errorf("Returned %d total liking users, want %d", follows2.Total, 1)
 	}
 	if !follows2.ContainsFollowerID(os.Getenv("TESTUSER_ID")) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
@@ -306,8 +321,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(specifiedFollows) != 1 {
-		t.Errorf("Returned %d likes, want %d", len(specifiedFollows), 1)
+	if len(specifiedFollows.Follows) != 1 {
+		t.Errorf("Returned %d likes, want %d", len(specifiedFollows.Follows), 1)
+	}
+	if specifiedFollows.Total != 1 {
+		t.Errorf("Returned %d total likes, want %d", specifiedFollows.Total, 1)
 	}
 	if !specifiedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) || !specifiedFollows.ContainsFolloweeID(followeeIDs[0]) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))

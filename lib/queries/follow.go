@@ -31,7 +31,10 @@ type StructuredFollow struct {
 	Followee  UserStub  `json:"followee"`
 	Timestamp time.Time `json:"timestamp"`
 }
-type StructuredFollows []StructuredFollow
+type StructuredFollows struct {
+	Follows []StructuredFollow `json:"follows"`
+	Total   int64              `json:"total"`
+}
 
 func (r rawFollow) ToFollow() StructuredFollow {
 	return StructuredFollow{
@@ -56,7 +59,7 @@ func (r rawFollow) ToFollow() StructuredFollow {
 }
 
 func (arr StructuredFollows) ContainsFollower(b UserStub) bool {
-	for _, a := range arr {
+	for _, a := range arr.Follows {
 		if a.Follower.EggsID == b.EggsID && a.Follower.DisplayName == b.DisplayName && a.Follower.IsArtist == b.IsArtist && a.Follower.ImageDataPath == b.ImageDataPath && a.Follower.PrefectureCode == b.PrefectureCode && a.Follower.ProfileText == b.ProfileText {
 			return true
 		}
@@ -65,7 +68,7 @@ func (arr StructuredFollows) ContainsFollower(b UserStub) bool {
 }
 
 func (arr StructuredFollows) ContainsFollowee(b UserStub) bool {
-	for _, a := range arr {
+	for _, a := range arr.Follows {
 		if a.Followee.EggsID == b.EggsID && a.Followee.DisplayName == b.DisplayName && a.Followee.IsArtist == b.IsArtist && a.Followee.ImageDataPath == b.ImageDataPath && a.Followee.PrefectureCode == b.PrefectureCode && a.Followee.ProfileText == b.ProfileText {
 			return true
 		}
@@ -74,7 +77,7 @@ func (arr StructuredFollows) ContainsFollowee(b UserStub) bool {
 }
 
 func (arr StructuredFollows) ContainsFollowerID(b string) bool {
-	for _, a := range arr {
+	for _, a := range arr.Follows {
 		if a.Follower.EggsID == b {
 			return true
 		}
@@ -83,7 +86,7 @@ func (arr StructuredFollows) ContainsFollowerID(b string) bool {
 }
 
 func (arr StructuredFollows) ContainsFolloweeID(b string) bool {
-	for _, a := range arr {
+	for _, a := range arr.Follows {
 		if a.Followee.EggsID == b {
 			return true
 		}
@@ -91,10 +94,14 @@ func (arr StructuredFollows) ContainsFolloweeID(b string) bool {
 	return false
 }
 
-func (arr rawFollows) ToFollows() (follows StructuredFollows) {
-	follows = make(StructuredFollows, 0)
+func (arr rawFollows) ToFollows(total int64) (follows StructuredFollows) {
+	followSlice := make([]StructuredFollow, 0)
 	for _, r := range arr {
-		follows = append(follows, r.ToFollow())
+		followSlice = append(followSlice, r.ToFollow())
+	}
+	follows = StructuredFollows{
+		Follows: followSlice,
+		Total:   total,
 	}
 	return
 }
@@ -126,16 +133,21 @@ func GetFollows(ctx context.Context, followerIDs []string, followeeIDs []string,
 		return
 	}
 	var query string
+	var query2 string
 	prefix := "SELECT u1.eggs_id AS eggs_id1, u1.display_name AS display_name1, u1.is_artist AS is_artist1, u1.image_data_path AS image_data_path1, u1.prefecture_code AS prefecture_code1, u1.profile_text AS profile_text1, u2.eggs_id AS eggs_id2, u2.display_name AS display_name2, u2.is_artist AS is_artist2, u2.image_data_path AS image_data_path2, u2.prefecture_code AS prefecture_code2, u2.profile_text AS profile_text2, uf.added_time FROM user_follows uf "
+	prefix2 := "SELECT COUNT(*) FROM user_follows "
 	args := make([]interface{}, 0)
 	if len(followerIDs) == 0 {
 		query = prefix + "INNER JOIN users u1 ON uf.follower_id = u1.eggs_id INNER JOIN users u2 ON uf.followee_id = u2.eggs_id AND uf.followee_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
+		query2 = prefix2 + "WHERE followee_id = ANY($1)"
 		args = append(args, followeeIDs)
 	} else if len(followeeIDs) == 0 {
 		query = prefix + "INNER JOIN users u1 ON uf.follower_id = u1.eggs_id AND uf.follower_id = ANY($1) INNER JOIN users u2 ON uf.followee_id = u2.eggs_id ORDER BY added_time DESC LIMIT $2 OFFSET $3"
+		query2 = prefix2 + "WHERE follower_id = ANY($1)"
 		args = append(args, followerIDs)
 	} else {
 		query = prefix + "INNER JOIN users u1 ON uf.follower_id = u1.eggs_id AND uf.follower_id = ANY($1) INNER JOIN users u2 ON uf.followee_id = u2.eggs_id AND uf.followee_id = ANY($2) ORDER BY added_time DESC LIMIT $3 OFFSET $4"
+		query2 = prefix2 + "WHERE follower_id = ANY($1) AND followee_id = ANY($2)"
 		args = append(args, followerIDs, followeeIDs)
 	}
 	args = append(args, paginator.Limit, paginator.Offset)
@@ -155,11 +167,10 @@ func GetFollows(ctx context.Context, followerIDs []string, followeeIDs []string,
 	if err != nil {
 		return
 	}
+	var total int64
+	err = tx.QueryRow(ctx, query2, args[:len(args)-2]...).Scan(&total)
 	err = commitTransaction(tx)
-	if err != nil {
-		return
-	}
-	follows = rawFollows.ToFollows()
+	follows = rawFollows.ToFollows(total)
 	return
 }
 

@@ -79,13 +79,16 @@ func TestPost(t *testing.T) {
 	if w.Body.String() == "" {
 		t.Errorf("Body is empty")
 	}
-	var likes []queries.StructuredLike
+	var likes queries.StructuredLikes
 	err = json.Unmarshal([]byte(w.Body.String()), &likes)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(likes) != 300_000 {
-		t.Errorf("Returned %d liked tracks, want %d", len(likes), 300_000)
+	if len(likes.Likes) != 300_000 {
+		t.Errorf("Returned %d liked tracks, want %d", len(likes.Likes), 300_000)
+	}
+	if likes.Total != 300_000 {
+		t.Errorf("Returned %d total liked tracks, want %d", likes.Total, 300_000)
 	}
 
 	w = httptest.NewRecorder()
@@ -96,13 +99,16 @@ func TestPost(t *testing.T) {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
 
-	var limitedLikes []queries.StructuredLike
+	var limitedLikes queries.StructuredLikes
 	err = json.Unmarshal([]byte(w.Body.String()), &limitedLikes)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(limitedLikes) != 10 {
-		t.Errorf("Returned %d liked tracks, want %d", len(limitedLikes), 10)
+	if len(limitedLikes.Likes) != 10 {
+		t.Errorf("Returned %d liked tracks, want %d", len(limitedLikes.Likes), 10)
+	}
+	if limitedLikes.Total != 300_000 {
+		t.Errorf("Returned %d total liked tracks, want %d", limitedLikes.Total, 300_000)
 	}
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
@@ -120,13 +126,16 @@ func TestPost(t *testing.T) {
 	if w.Body.String() == "" {
 		t.Errorf("Body is empty")
 	}
-	var emptyLikes []queries.StructuredLike
+	var emptyLikes queries.StructuredLikes
 	err = json.Unmarshal([]byte(w.Body.String()), &emptyLikes)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(emptyLikes) != 0 {
-		t.Errorf("Returned %d liked tracks, want %d", len(emptyLikes), 0)
+	if len(emptyLikes.Likes) != 0 {
+		t.Errorf("Returned %d liked tracks, want %d", len(emptyLikes.Likes), 0)
+	}
+	if emptyLikes.Total != 0 {
+		t.Errorf("Returned %d total liked tracks, want %d", emptyLikes.Total, 0)
 	}
 
 }
@@ -154,8 +163,8 @@ func TestGet(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
-	if w.Body.String() != "[]" {
-		t.Errorf("Body is %s, want []", w.Body.String())
+	if w.Body.String() != `{"likes":[],"total":0}` {
+		t.Errorf("Body is %s, want %s", w.Body.String(), `{"likes":[],"total":0}`)
 	}
 
 	musicIDs := make([]string, 0)
@@ -211,8 +220,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(likes) != 2 {
-		t.Errorf("Returned %d liking users, want %d", len(likes), 2)
+	if len(likes.Likes) != 2 {
+		t.Errorf("Returned %d liking users, want %d", len(likes.Likes), 2)
+	}
+	if likes.Total != 2 {
+		t.Errorf("Returned %d total likes, want %d", likes.Total, 2)
 	}
 	if !likes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[0]}) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
@@ -236,8 +248,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(limitedLikes) != 1 {
-		t.Errorf("Returned %d liking users, want %d", len(limitedLikes), 1)
+	if len(limitedLikes.Likes) != 1 {
+		t.Errorf("Returned %d liking users, want %d", len(limitedLikes.Likes), 1)
+	}
+	if limitedLikes.Total != 2 {
+		t.Errorf("Returned %d total likes, want %d", limitedLikes.Total, 2)
 	}
 	if !limitedLikes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[0]}) && !limitedLikes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID2"), TrackID: musicIDs[0]}) {
 		t.Errorf("Expected slice to include %s or %s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"))
@@ -258,8 +273,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(likes2) != 1 {
-		t.Errorf("Returned %d liking users, want %d", len(likes2), 1)
+	if len(likes2.Likes) != 1 {
+		t.Errorf("Returned %d liking users, want %d", len(likes2.Likes), 1)
+	}
+	if likes2.Total != 1 {
+		t.Errorf("Returned %d total likes, want %d", likes2.Total, 1)
 	}
 	if !likes2.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[1]}) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
@@ -280,8 +298,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(specifiedLikes) != 1 {
-		t.Errorf("Returned %d likes, want %d", len(specifiedLikes), 1)
+	if len(specifiedLikes.Likes) != 1 {
+		t.Errorf("Returned %d likes, want %d", len(specifiedLikes.Likes), 1)
+	}
+	if specifiedLikes.Total != 1 {
+		t.Errorf("Returned %d total likes, want %d", specifiedLikes.Total, 1)
 	}
 	if !specifiedLikes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[0]}) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))

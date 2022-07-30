@@ -26,7 +26,10 @@ type StructuredLike struct {
 	User      UserStub  `json:"user"`
 	Timestamp time.Time `json:"timestamp"`
 }
-type StructuredLikes []StructuredLike
+type StructuredLikes struct {
+	Likes []StructuredLike `json:"likes"`
+	Total int64            `json:"total"`
+}
 
 func (r rawLike) ToLike() StructuredLike {
 	return StructuredLike{
@@ -43,16 +46,20 @@ func (r rawLike) ToLike() StructuredLike {
 	}
 }
 
-func (arr rawLikes) ToLikes() (likes StructuredLikes) {
-	likes = make(StructuredLikes, 0)
+func (arr rawLikes) ToLikes(total int64) (likes StructuredLikes) {
+	likeSlice := make([]StructuredLike, 0)
 	for _, r := range arr {
-		likes = append(likes, r.ToLike())
+		likeSlice = append(likeSlice, r.ToLike())
+	}
+	likes = StructuredLikes{
+		Likes: likeSlice,
+		Total: total,
 	}
 	return
 }
 
 func (arr StructuredLikes) Contains(b PartialLike) bool {
-	for _, a := range arr {
+	for _, a := range arr.Likes {
 		if a.TrackID == b.TrackID && a.User.EggsID == b.EggsID {
 			return true
 		}
@@ -78,16 +85,21 @@ func GetLikedTracks(ctx context.Context, eggsIDs []string, trackIDs []string, pa
 		return
 	}
 	var query string
+	var query2 string
 	prefix := "SELECT ul.track_id, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.added_time FROM user_likes ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
+	prefix2 := "SELECT COUNT(*) FROM user_likes WHERE "
 	args := make([]interface{}, 0)
 	if len(trackIDs) == 0 {
 		query = prefix + "ul.eggs_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
+		query2 = prefix2 + "eggs_id = ANY($1)"
 		args = append(args, eggsIDs)
 	} else if len(eggsIDs) == 0 {
 		query = prefix + "ul.track_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
+		query2 = prefix2 + "track_id = ANY($1)"
 		args = append(args, trackIDs)
 	} else {
 		query = prefix + "ul.track_id = ANY($1) AND ul.eggs_id = ANY($2) ORDER BY added_time DESC LIMIT $3 OFFSET $4"
+		query2 = prefix2 + "track_id = ANY($1) AND eggs_id = ANY($2)"
 		args = append(args, trackIDs, eggsIDs)
 	}
 	args = append(args, paginator.Limit, paginator.Offset)
@@ -106,8 +118,13 @@ func GetLikedTracks(ctx context.Context, eggsIDs []string, trackIDs []string, pa
 	if err != nil {
 		return
 	}
+	var total int64
+	err = tx.QueryRow(ctx, query2, args[:len(args)-2]...).Scan(&total)
+	if err != nil {
+		return
+	}
 	err = commitTransaction(tx)
-	likes = rawLikes.ToLikes()
+	likes = rawLikes.ToLikes(total)
 	return
 }
 

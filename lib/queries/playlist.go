@@ -26,7 +26,10 @@ type StructuredPlaylist struct {
 	User       UserStub  `json:"user"`
 	Timestamp  time.Time `json:"timestamp"`
 }
-type StructuredPlaylists []StructuredPlaylist
+type StructuredPlaylists struct {
+	Playlists []StructuredPlaylist `json:"playlists"`
+	Total     int64                `json:"total"`
+}
 
 func (r rawPlaylist) ToPlaylist() StructuredPlaylist {
 	return StructuredPlaylist{
@@ -43,29 +46,26 @@ func (r rawPlaylist) ToPlaylist() StructuredPlaylist {
 	}
 }
 
-func (arr rawPlaylists) ToPlaylists() (playlists StructuredPlaylists) {
-	playlists = make(StructuredPlaylists, 0)
+func (arr rawPlaylists) ToPlaylists(total int64) (playlists StructuredPlaylists) {
+	playlistSlice := make([]StructuredPlaylist, 0)
 	for _, r := range arr {
-		playlists = append(playlists, r.ToPlaylist())
+		playlistSlice = append(playlistSlice, r.ToPlaylist())
+	}
+	playlists = StructuredPlaylists{
+		Playlists: playlistSlice,
+		Total:     total,
 	}
 	return
 }
 
 func (arr StructuredPlaylists) Contains(b PartialPlaylist) bool {
-	for _, a := range arr {
+	for _, a := range arr.Playlists {
 		if a.PlaylistID == b.PlaylistID && a.User.EggsID == b.EggsID {
 			return true
 		}
 	}
 	return false
 }
-
-type Playlist struct {
-	PlaylistID string    `json:"playlistID" db:"playlist_id"`
-	EggsID     string    `json:"eggsID" db:"eggs_id"`
-	Timestamp  time.Time `json:"timestamp" db:"last_modified"`
-}
-type Playlists []Playlist
 
 type PartialPlaylist struct {
 	PlaylistID string `json:"playlistID" db:"playlist_id"`
@@ -79,16 +79,21 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 	}
 
 	var query string
+	var query2 string
 	prefix := "SELECT ul.playlist_id, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.last_modified FROM playlists ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
+	prefix2 := "SELECT COUNT(*) FROM playlists WHERE "
 	args := make([]interface{}, 0)
 	if len(playlistIDs) == 0 {
 		query = prefix + "ul.eggs_id = ANY($1) ORDER BY last_modified DESC LIMIT $2 OFFSET $3"
+		query2 = prefix2 + "eggs_id = ANY($1)"
 		args = append(args, eggsIDs)
 	} else if len(eggsIDs) == 0 {
 		query = prefix + "ul.playlist_id = ANY($1) ORDER BY last_modified DESC LIMIT $2 OFFSET $3"
+		query2 = prefix2 + "playlist_id = ANY($1)"
 		args = append(args, playlistIDs)
 	} else {
 		query = prefix + "ul.playlist_id = ANY($1) AND ul.eggs_id = ANY($2) ORDER BY last_modified DESC LIMIT $3 OFFSET $4"
+		query2 = prefix2 + "playlist_id = ANY($1) AND eggs_id = ANY($2)"
 		args = append(args, playlistIDs, eggsIDs)
 	}
 	args = append(args, paginator.Limit, paginator.Offset)
@@ -107,8 +112,13 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 	if err != nil {
 		return
 	}
+	var total int64
+	err = tx.QueryRow(ctx, query2, args[:len(args)-2]...).Scan(&total)
+	if err != nil {
+		return
+	}
 	err = commitTransaction(tx)
-	playlists = rawPlaylists.ToPlaylists()
+	playlists = rawPlaylists.ToPlaylists(total)
 	return
 }
 
