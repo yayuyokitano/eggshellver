@@ -151,12 +151,12 @@ func LikeTracks(ctx context.Context, eggsID string, trackIDs []string) (n int64,
 	return
 }
 
-func DeleteLikes(ctx context.Context, eggsID string, trackIDs []string) (err error) {
+func DeleteLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
 		return
 	}
-	_, err = tx.Exec(
+	cmd, err := tx.Exec(
 		ctx,
 		"DELETE FROM user_likes WHERE eggs_id = $1 AND track_id = ANY($2)",
 		eggsID,
@@ -165,6 +165,7 @@ func DeleteLikes(ctx context.Context, eggsID string, trackIDs []string) (err err
 	if err != nil {
 		return
 	}
+	n = cmd.RowsAffected()
 	err = commitTransaction(tx)
 	return
 }

@@ -197,12 +197,12 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 	return
 }
 
-func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string) (err error) {
+func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
 		return
 	}
-	_, err = tx.Exec(
+	cmd, err := tx.Exec(
 		ctx,
 		"DELETE FROM user_follows WHERE follower_id = $1 AND followee_id = ANY($2)",
 		followerID,
@@ -211,6 +211,7 @@ func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string)
 	if err != nil {
 		return
 	}
+	n = cmd.RowsAffected()
 	err = commitTransaction(tx)
 	return
 }

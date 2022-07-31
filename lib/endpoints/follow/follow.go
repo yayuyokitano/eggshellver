@@ -19,6 +19,21 @@ type LikedTracks struct {
 	Count  int            `json:"totalCount"`
 }
 
+func Delete(w http.ResponseWriter, r *http.Request) {
+	var unfollowedUsers []string
+	eggsID, err := router.AuthenticatePostRequest(w, r, &unfollowedUsers)
+	if err != nil {
+		return
+	}
+
+	n, err := queries.DeleteFollows(context.Background(), eggsID, unfollowedUsers)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%s unfollowed %d users", eggsID, n)))
+}
+
 func Post(w http.ResponseWriter, r *http.Request) {
 	var followedUsers []string
 	eggsID, err := router.AuthenticatePostRequest(w, r, &followedUsers)

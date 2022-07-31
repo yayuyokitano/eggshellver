@@ -60,6 +60,54 @@ var testUserStubs = []queries.UserStub{
 	},
 }
 
+func TestUniquePost(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	b, err := json.Marshal(testUserStubs)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
+	userstubendpoint.Post(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if w.Body.String() == "" {
+		t.Errorf("Body is empty")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1"]`))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Post(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if w.Body.String() == "" {
+		t.Errorf("Body is empty")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1"]`))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Post(w, r)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+
+}
+
 func TestPost(t *testing.T) {
 	services.Start()
 	defer services.Stop()
@@ -329,6 +377,118 @@ func TestGet(t *testing.T) {
 	}
 	if !specifiedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) || !specifiedFollows.ContainsFolloweeID(followeeIDs[0]) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
+	}
+
+}
+
+func TestDelete(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	b, err := json.Marshal(testUserStubs)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
+	userstubendpoint.Post(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if w.Body.String() == "" {
+		t.Errorf("Body is empty")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1","2","3","4","5"]`))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Post(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	if w.Body.String() == "" {
+		t.Errorf("Body is empty")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/delete-follow", strings.NewReader(`["1"]`))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Delete(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	if w.Body.String() != fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 1) {
+		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 1))
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	var follows queries.StructuredFollows
+	err = json.Unmarshal([]byte(w.Body.String()), &follows)
+	if err != nil {
+		t.Error(err)
+	}
+	if follows.Total != 4 {
+		t.Errorf("Returned %d total following users, want %d", follows.Total, 4)
+	}
+	if !follows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) {
+		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
+	}
+	if follows.ContainsFolloweeID("1") {
+		t.Errorf("Expected slice to not include %s", "1")
+	}
+	if !follows.ContainsFolloweeID("2") {
+		t.Errorf("Expected slice to include 2")
+	}
+	if !follows.ContainsFolloweeID("3") {
+		t.Errorf("Expected slice to include 3")
+	}
+	if !follows.ContainsFolloweeID("4") {
+		t.Errorf("Expected slice to include 4")
+	}
+	if !follows.ContainsFolloweeID("5") {
+		t.Errorf("Expected slice to include 5")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/delete-follow", strings.NewReader(`["1","2","3","4","5"]`))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Delete(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	if w.Body.String() != fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 4) {
+		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 5))
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	err = json.Unmarshal([]byte(w.Body.String()), &follows)
+	if err != nil {
+		t.Error(err)
+	}
+	if follows.Total != 0 {
+		t.Errorf("Returned %d total following users, want %d", follows.Total, 0)
+	}
+	if len(follows.Follows) != 0 {
+		t.Errorf("Returned %d following users, want %d", follows.Total, 0)
 	}
 
 }

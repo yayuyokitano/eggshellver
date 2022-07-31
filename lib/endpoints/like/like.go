@@ -10,6 +10,21 @@ import (
 	"github.com/yayuyokitano/eggshellver/lib/router"
 )
 
+func Delete(w http.ResponseWriter, r *http.Request) {
+	var deletedLikes []string
+	eggsID, err := router.AuthenticatePostRequest(w, r, &deletedLikes)
+	if err != nil {
+		return
+	}
+
+	n, err := queries.DeleteLikes(context.Background(), eggsID, deletedLikes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%s unliked %d tracks", eggsID, n)))
+}
+
 func Post(w http.ResponseWriter, r *http.Request) {
 	var likedTracks []string
 	eggsID, err := router.AuthenticatePostRequest(w, r, &likedTracks)

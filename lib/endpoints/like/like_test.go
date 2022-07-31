@@ -34,6 +34,49 @@ func createMusicId() string {
 	)
 }
 
+func TestUniquePost(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	musicIDs := make([]string, 0)
+	for i := 0; i < 1; i++ {
+		musicIDs = append(musicIDs, createMusicId())
+	}
+
+	b, err := json.Marshal(musicIDs)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/like", bytes.NewReader(b))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Post(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if w.Body.String() == "" {
+		t.Errorf("Body is empty")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/like", bytes.NewReader(b))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Post(w, r)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+
+}
+
 func TestPost(t *testing.T) {
 	services.Start()
 	defer services.Stop()
@@ -306,6 +349,131 @@ func TestGet(t *testing.T) {
 	}
 	if !specifiedLikes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[0]}) {
 		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
+	}
+
+}
+
+func TestDelete(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	musicIDs := make([]string, 0)
+	for i := 0; i < 5; i++ {
+		musicIDs = append(musicIDs, createMusicId())
+	}
+
+	b, err := json.Marshal(musicIDs)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/like", bytes.NewReader(b))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Post(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if w.Body.String() == "" {
+		t.Errorf("Body is empty")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", fmt.Sprintf("/like?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var likes queries.StructuredLikes
+	err = json.Unmarshal([]byte(w.Body.String()), &likes)
+	if err != nil {
+		t.Error(err)
+	}
+	if likes.Total != 5 {
+		t.Errorf("Returned %d total likes, want %d", likes.Total, 5)
+	}
+
+	b, err = json.Marshal(musicIDs[:1])
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/delete-like", bytes.NewReader(b))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Delete(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	if w.Body.String() != fmt.Sprintf("%s unliked %d tracks", os.Getenv("TESTUSER_ID"), 1) {
+		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s unliked %d tracks", os.Getenv("TESTUSER_ID"), 1))
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", fmt.Sprintf("/like?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+
+	err = json.Unmarshal([]byte(w.Body.String()), &likes)
+	if err != nil {
+		t.Error(err)
+	}
+	if likes.Total != 4 {
+		t.Errorf("Returned %d total likes, want %d", likes.Total, 4)
+	}
+	if likes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[0]}) {
+		t.Errorf("Expected slice to not include %s", musicIDs[0])
+	}
+	if !likes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[1]}) {
+		t.Errorf("Expected slice to include %s", musicIDs[1])
+	}
+	if !likes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[2]}) {
+		t.Errorf("Expected slice to include %s", musicIDs[2])
+	}
+	if !likes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[3]}) {
+		t.Errorf("Expected slice to include %s", musicIDs[3])
+	}
+	if !likes.Contains(queries.PartialLike{EggsID: os.Getenv("TESTUSER_ID"), TrackID: musicIDs[4]}) {
+		t.Errorf("Expected slice to include %s", musicIDs[4])
+	}
+
+	b, err = json.Marshal(musicIDs)
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/delete-like", bytes.NewReader(b))
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	Delete(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+	if w.Body.String() != fmt.Sprintf("%s unliked %d tracks", os.Getenv("TESTUSER_ID"), 4) {
+		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s unliked %d tracks", os.Getenv("TESTUSER_ID"), 4))
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", fmt.Sprintf("/like?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+	}
+
+	err = json.Unmarshal([]byte(w.Body.String()), &likes)
+	if err != nil {
+		t.Error(err)
+	}
+	if likes.Total != 0 {
+		t.Errorf("Returned %d total likes, want %d", likes.Total, 0)
+	}
+	if len(likes.Likes) != 0 {
+		t.Errorf("Returned %d likes, want %d", len(likes.Likes), 0)
 	}
 
 }

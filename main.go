@@ -43,6 +43,9 @@ func startServer() {
 		POST: followendpoint.Post,
 		GET:  followendpoint.Get,
 	})
+	router.Handle("/delete-follow", router.Methods{
+		POST: followendpoint.Delete,
+	})
 	router.Handle("/like", router.Methods{
 		POST: likeendpoint.Post,
 		GET:  likeendpoint.Get,
