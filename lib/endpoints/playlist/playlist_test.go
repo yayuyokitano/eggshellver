@@ -8,10 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
+	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
 )
 
@@ -34,15 +37,51 @@ func createPlaylistId() string {
 	)
 }
 
+func TestUniquePost(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	playlists := make([]queries.PlaylistInput, 0)
+	for i := 0; i < 1; i++ {
+		playlists = append(playlists, queries.PlaylistInput{
+			PlaylistID:   createPlaylistId(),
+			LastModified: time.Now().Add(time.Duration(-i) * time.Second),
+		})
+	}
+
+	b, err := json.Marshal(playlists)
+
+	r := httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, 1)
+
+	r = httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, 1)
+
+}
+
 func TestPost(t *testing.T) {
 	services.Start()
 	defer services.Stop()
-	playlistIDs := make([]string, 0)
-	//stupidly high bulk test
-	for i := 0; i < 300_000; i++ {
-		playlistIDs = append(playlistIDs, createPlaylistId())
+	playlists := make(queries.PlaylistInputs, 0)
+	bulkSize := 10_000
+	for i := 0; i < bulkSize; i++ {
+		playlists = append(playlists, queries.PlaylistInput{
+			PlaylistID:   createPlaylistId(),
+			LastModified: time.Now().Add(time.Duration(-i) * time.Second),
+		})
 	}
-	b, err := json.Marshal(playlistIDs)
+	b, err := json.Marshal(playlists)
 	if err != nil {
 		t.Error(err)
 	}
@@ -58,85 +97,25 @@ func TestPost(t *testing.T) {
 		t.Error(err)
 	}
 
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/playlist", bytes.NewReader(b))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
+	r := httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, int64(bulkSize))
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s&limit=350000", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s&limit=15000", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, bulkSize, int64(bulkSize), []queries.PartialPlaylist{})
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var playlists queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &playlists)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(playlists.Playlists) != 300_000 {
-		t.Errorf("Returned %d playlists, want %d", len(playlists.Playlists), 300_000)
-	}
-	if playlists.Total != 300_000 {
-		t.Errorf("Returned %d total playlists, want %d", playlists.Total, 300_000)
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-
-	var limitedPlaylists queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &limitedPlaylists)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(limitedPlaylists.Playlists) != 10 {
-		t.Errorf("Returned %d playlists, want %d", len(limitedPlaylists.Playlists), 10)
-	}
-	if limitedPlaylists.Total != 300_000 {
-		t.Errorf("Returned %d total playlists, want %d", limitedPlaylists.Total, 300_000)
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 10, int64(bulkSize), []queries.PartialPlaylist{{
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[0].PlaylistID,
+	}})
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
 	if err != nil {
 		t.Error(err)
 	}
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s&limit=350000", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var emptyPlaylists queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &emptyPlaylists)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(emptyPlaylists.Playlists) != 0 {
-		t.Errorf("Returned %d playlists, want %d", len(emptyPlaylists.Playlists), 0)
-	}
-	if emptyPlaylists.Total != 0 {
-		t.Errorf("Returned %d total playlists, want %d", emptyPlaylists.Total, 0)
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s&limit=15000", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 0, 0, []queries.PartialPlaylist{})
 
 }
 
@@ -148,16 +127,17 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer services.RollbackTransaction()
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/playlist", nil)
+	r := httptest.NewRequest("GET", "/playlists", nil)
 	Get(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusBadRequest, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	Get(w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
@@ -166,174 +146,204 @@ func TestGet(t *testing.T) {
 		t.Errorf("Body is %s, want %s", w.Body.String(), `{"playlists":[],"total":0}`)
 	}
 
-	playlistIDs := make([]string, 0)
+	playlists := make([]queries.PlaylistInput, 0)
 	for i := 0; i < 2; i++ {
-		playlistIDs = append(playlistIDs, createPlaylistId())
+		playlists = append(playlists, queries.PlaylistInput{
+			PlaylistID:   createPlaylistId(),
+			LastModified: time.Now().Add(time.Duration(-i) * time.Second),
+		})
 	}
 
 	token, err := userendpoint.CreateTestUser(1)
 	if err != nil {
 		t.Error(err)
 	}
-	b, err := json.Marshal(playlistIDs)
+	b, err := json.Marshal(playlists)
 	if err != nil {
 		t.Error(err)
 	}
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/playlist", bytes.NewReader(b))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
+	r = httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, int64(len(playlists)))
 
 	token2, err := userendpoint.CreateTestUser(2)
 	if err != nil {
 		t.Error(err)
 	}
-	b, err = json.Marshal(playlistIDs[:1])
+	b, err = json.Marshal(playlists[:1])
 	if err != nil {
 		t.Error(err)
 	}
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/playlist", bytes.NewReader(b))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token2))
-	Post(w, r)
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Status code is %d, should be %d", w.Code, http.StatusInternalServerError)
-	}
 
-	err = services.RollbackTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = services.StartTransaction()
+	r = httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token2, 1)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?playlistIDs=%s", playlists[0].PlaylistID), nil)
+	testHasPlaylists(t, r, 1, 1, []queries.PartialPlaylist{{
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[0].PlaylistID,
+	}})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 2, 2, []queries.PartialPlaylist{{
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[0].PlaylistID,
+	}, {
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[1].PlaylistID,
+	}})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s&limit=1", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 1, 2, []queries.PartialPlaylist{{
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[0].PlaylistID,
+	}})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s&playlistIDs=%s", os.Getenv("TESTUSER_ID"), playlists[1].PlaylistID), nil)
+	testHasPlaylists(t, r, 1, 1, []queries.PartialPlaylist{{
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[1].PlaylistID,
+	}})
+}
+
+func TestDelete(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer services.RollbackTransaction()
 
-	token, err = userendpoint.CreateTestUser(1)
+	token, err := userendpoint.CreateTestUser(1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	b, err = json.Marshal(playlistIDs)
+	playlists := make(queries.PlaylistInputs, 0)
+	for i := 0; i < 5; i++ {
+		playlists = append(playlists, queries.PlaylistInput{
+			PlaylistID:   createPlaylistId(),
+			LastModified: time.Now().Add(time.Duration(-i) * time.Second),
+		})
+	}
+
+	b, err := json.Marshal(playlists)
+
+	r := httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, int64(len(playlists)))
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 5, 5, []queries.PartialPlaylist{})
+
+	r = httptest.NewRequest("DELETE", fmt.Sprintf("/playlists?target=%s", playlists[0].PlaylistID), nil)
+	router.CommitMutating(t, r, Delete, token, 1)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 4, 4, []queries.PartialPlaylist{{
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[1].PlaylistID,
+	}, {
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[2].PlaylistID,
+	}, {
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[3].PlaylistID,
+	}, {
+		EggsID:     os.Getenv("TESTUSER_ID"),
+		PlaylistID: playlists[4].PlaylistID,
+	}})
+
+	s := strings.Join(playlists.PlaylistIDs(), ",")
+
+	r = httptest.NewRequest("DELETE", fmt.Sprintf("/playlists?target=%s", s), nil)
+	router.CommitMutating(t, r, Delete, token, 4)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 0, 0, []queries.PartialPlaylist{})
+
+}
+
+func TestPut(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
 	if err != nil {
 		t.Error(err)
 	}
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/playlist", bytes.NewReader(b))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
+
+	playlists := make(queries.PlaylistInputs, 0)
+	for i := 0; i < 5; i++ {
+		playlists = append(playlists, queries.PlaylistInput{
+			PlaylistID:   createPlaylistId(),
+			LastModified: time.Now().Add(time.Duration(-i) * time.Second),
+		})
 	}
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?playlistIDs=%s", playlistIDs[0]), nil)
+	b, err := json.Marshal(playlists[:3])
+
+	r := httptest.NewRequest("PUT", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Put, token, 3)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 3, 3, playlists.PartialPlaylists(os.Getenv("TESTUSER_ID"))[:3])
+
+	b, err = json.Marshal(playlists[1:])
+
+	r = httptest.NewRequest("PUT", "/playlists", bytes.NewReader(b))
+	router.CommitMutating(t, r, Put, token, 4)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasPlaylists(t, r, 4, 4, playlists.PartialPlaylists(os.Getenv("TESTUSER_ID"))[1:])
+
+	w := httptest.NewRecorder()
+	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+
+	var playlistResults queries.StructuredPlaylists
+	err = json.Unmarshal([]byte(w.Body.String()), &playlistResults)
+	if err != nil {
+		t.Error(err)
+	}
+	//Timestamps SHOULD have changed for the playlists that had been recorded
+	if playlistResults.Playlists[0].PlaylistID != playlists[1].PlaylistID {
+		t.Errorf("Expected music ID to be %s, got %s", playlists[1].PlaylistID, playlistResults.Playlists[0].PlaylistID)
+	}
+	if playlistResults.Playlists[2].PlaylistID != playlists[3].PlaylistID {
+		t.Errorf("Expected music ID to be %s, got %s", playlists[3].PlaylistID, playlistResults.Playlists[2].PlaylistID)
+	}
+}
+
+func testHasPlaylists(t *testing.T, r *http.Request, num int, total int64, expectedPlaylists []queries.PartialPlaylist) {
+	t.Helper()
+	w := httptest.NewRecorder()
 	Get(w, r)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
+		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
 	}
 
 	var playlists queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &playlists)
+	err := json.Unmarshal([]byte(w.Body.String()), &playlists)
 	if err != nil {
 		t.Error(err)
 	}
-
-	if len(playlists.Playlists) != 1 {
-		t.Errorf("Returned %d playlists, want %d", len(playlists.Playlists), 1)
+	if len(playlists.Playlists) != num {
+		t.Errorf("Returned %d playlists, want %d", len(playlists.Playlists), num)
 	}
-	if playlists.Total != 1 {
-		t.Errorf("Returned %d total playlists, want %d", playlists.Total, 1)
+	if playlists.Total != total {
+		t.Errorf("Returned %d total, want %d", playlists.Total, total)
 	}
-	if !playlists.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
+	for _, playlist := range expectedPlaylists {
+		if !playlists.Contains(playlist) {
+			t.Errorf("Expected slice to include playlist %v", playlist)
+		}
 	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var playlists2 queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &playlists2)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if len(playlists2.Playlists) != 2 {
-		t.Errorf("Returned %d playlists, want %d", len(playlists2.Playlists), 2)
-	}
-	if playlists2.Total != 2 {
-		t.Errorf("Returned %d total playlists, want %d", playlists2.Total, 2)
-	}
-	if !playlists2.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
-		t.Errorf("Expected slice to include %s", playlistIDs[0])
-	}
-	if !playlists2.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[1]}) {
-		t.Errorf("Expected slice to include %s", playlistIDs[1])
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s&limit=1", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var limitedPlaylists queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &limitedPlaylists)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(limitedPlaylists.Playlists) != 1 {
-		t.Errorf("Returned %d playlists, want %d", len(limitedPlaylists.Playlists), 1)
-	}
-	if limitedPlaylists.Total != 2 {
-		t.Errorf("Returned %d total playlists, want %d", limitedPlaylists.Total, 2)
-	}
-	if !limitedPlaylists.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
-		t.Errorf("Expected slice to include %s", playlistIDs[0])
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/playlist?eggsIDs=%s&playlistIDs=%s", os.Getenv("TESTUSER_ID"), playlistIDs[0]), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var specifiedPlaylists queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &specifiedPlaylists)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(specifiedPlaylists.Playlists) != 1 {
-		t.Errorf("Returned %d playlists, want %d", len(specifiedPlaylists.Playlists), 1)
-	}
-	if specifiedPlaylists.Total != 1 {
-		t.Errorf("Returned %d total playlists, want %d", specifiedPlaylists.Total, 1)
-	}
-	if !specifiedPlaylists.Contains(queries.PartialPlaylist{EggsID: os.Getenv("TESTUSER_ID"), PlaylistID: playlistIDs[0]}) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
-	}
-
 }

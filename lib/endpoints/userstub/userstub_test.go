@@ -50,7 +50,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
+	r := httptest.NewRequest("POST", "/userstubs", bytes.NewReader(b))
 	Post(w, r)
 
 	if w.Code != http.StatusOK {
@@ -61,7 +61,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/user?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
 	userendpoint.Get(w, r)
 
 	if w.Code != http.StatusOK {
@@ -82,7 +82,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/userstub", strings.NewReader(""))
+	r = httptest.NewRequest("POST", "/userstubs", strings.NewReader(""))
 	Post(w, r)
 
 	if w.Code != http.StatusBadRequest {
@@ -90,7 +90,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/userstub", strings.NewReader("{}"))
+	r = httptest.NewRequest("POST", "/userstubs", strings.NewReader("{}"))
 	Post(w, r)
 
 	if w.Code != http.StatusBadRequest {

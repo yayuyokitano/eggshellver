@@ -54,6 +54,15 @@ func (arr UserStubs) Contains(b UserStub) bool {
 	return false
 }
 
+func (arr UserStubs) ContainsID(b string) bool {
+	for _, a := range arr {
+		if a.EggsID == b {
+			return true
+		}
+	}
+	return false
+}
+
 func (arr UserStubs) StringSlice() (output []string) {
 	output = make([]string, 0)
 	for _, user := range arr {

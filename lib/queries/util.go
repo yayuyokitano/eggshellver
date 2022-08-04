@@ -26,8 +26,11 @@ func fetchTransaction() (tx pgx.Tx, err error) {
 	return
 }
 
-func commitTransaction(tx pgx.Tx) (err error) {
+func commitTransaction(tx pgx.Tx, tempTables ...string) (err error) {
 	if services.IsTesting {
+		for _, table := range tempTables {
+			_, err = tx.Exec(context.Background(), "DROP TABLE IF EXISTS "+table)
+		}
 		return
 	}
 	err = tx.Commit(context.Background())

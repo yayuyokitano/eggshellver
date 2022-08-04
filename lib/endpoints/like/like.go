@@ -10,21 +10,6 @@ import (
 	"github.com/yayuyokitano/eggshellver/lib/router"
 )
 
-func Delete(w http.ResponseWriter, r *http.Request) {
-	var deletedLikes []string
-	eggsID, err := router.AuthenticatePostRequest(w, r, &deletedLikes)
-	if err != nil {
-		return
-	}
-
-	n, err := queries.DeleteLikes(context.Background(), eggsID, deletedLikes)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Write([]byte(fmt.Sprintf("%s unliked %d tracks", eggsID, n)))
-}
-
 func Post(w http.ResponseWriter, r *http.Request) {
 	var likedTracks []string
 	eggsID, err := router.AuthenticatePostRequest(w, r, &likedTracks)
@@ -37,7 +22,7 @@ func Post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(fmt.Sprintf("%s liked %d tracks", eggsID, n)))
+	w.Write([]byte(fmt.Sprintf("%d", n)))
 }
 
 func Get(w http.ResponseWriter, r *http.Request) {
@@ -59,4 +44,34 @@ func Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(b)
+}
+
+func Delete(w http.ResponseWriter, r *http.Request) {
+	var deletedLikes []string
+	eggsID, err := router.AuthenticateDeleteRequest(w, r, &deletedLikes)
+	if err != nil {
+		return
+	}
+
+	n, err := queries.DeleteLikes(context.Background(), eggsID, deletedLikes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%d", n)))
+}
+
+func Put(w http.ResponseWriter, r *http.Request) {
+	var likes []string
+	eggsID, err := router.AuthenticatePostRequest(w, r, &likes)
+	if err != nil {
+		return
+	}
+
+	n, err := queries.PutLikes(context.Background(), eggsID, likes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%d", n)))
 }

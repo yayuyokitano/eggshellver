@@ -184,16 +184,29 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 	if err != nil {
 		return
 	}
-	n, err = tx.CopyFrom(
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_follows")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_follows (LIKE user_follows INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+	_, err = tx.CopyFrom(
 		ctx,
-		pgx.Identifier{"user_follows"},
+		pgx.Identifier{"_temp_upsert_follows"},
 		[]string{"follower_id", "followee_id", "added_time"},
 		pgx.CopyFromRows(follows),
 	)
 	if err != nil {
 		return
 	}
-	err = commitTransaction(tx)
+	cmd, err := tx.Exec(ctx, "INSERT INTO user_follows SELECT * FROM _temp_upsert_follows ON CONFLICT DO NOTHING")
+	if err != nil {
+		return
+	}
+	n = cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_follows")
 	return
 }
 
@@ -213,5 +226,56 @@ func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string)
 	}
 	n = cmd.RowsAffected()
 	err = commitTransaction(tx)
+	return
+}
+
+func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n int64, err error) {
+	timestamp := time.Now().UnixMilli()
+	follows := make([][]interface{}, 0)
+	for i, followeeID := range followeeIDs {
+		follows = append(follows, []interface{}{followerID, followeeID, time.UnixMilli(timestamp - int64(i))})
+	}
+
+	tx, err := fetchTransaction()
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_follows")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_follows (LIKE user_follows INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"_temp_upsert_follows"},
+		[]string{"follower_id", "followee_id", "added_time"},
+		pgx.CopyFromRows(follows),
+	)
+	if err != nil {
+		return
+	}
+
+	_, err = tx.Exec(ctx, "INSERT INTO user_follows SELECT * FROM _temp_upsert_follows ON CONFLICT DO NOTHING")
+	if err != nil {
+		return
+	}
+
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM user_follows WHERE follower_id = $1",
+		followerID,
+	).Scan(&n)
+	if err != nil {
+		return
+	}
+
+	cmd, err := tx.Exec(ctx, "DELETE FROM user_follows WHERE follower_id = $1 AND followee_id != ALL($2)", followerID, followeeIDs)
+
+	n -= cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_follows")
 	return
 }

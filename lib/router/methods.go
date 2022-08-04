@@ -6,8 +6,9 @@ import (
 )
 
 type Methods struct {
-	GET  func(http.ResponseWriter, *http.Request)
-	POST func(http.ResponseWriter, *http.Request)
+	GET    func(http.ResponseWriter, *http.Request)
+	POST   func(http.ResponseWriter, *http.Request)
+	DELETE func(http.ResponseWriter, *http.Request)
 }
 
 func Handle(endpoint string, m Methods) {
@@ -17,6 +18,8 @@ func Handle(endpoint string, m Methods) {
 			m.GET(w, r)
 		case "POST":
 			m.POST(w, r)
+		case "DELETE":
+			m.DELETE(w, r)
 		default:
 			ReturnMethodNotAllowed(w, r)
 		}

@@ -11,7 +11,7 @@ import (
 )
 
 func Post(w http.ResponseWriter, r *http.Request) {
-	var playlists []string
+	var playlists []queries.PlaylistInput
 	eggsID, err := router.AuthenticatePostRequest(w, r, &playlists)
 	if err != nil {
 		return
@@ -22,7 +22,7 @@ func Post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(fmt.Sprintf("%s attached %d playlists", eggsID, n)))
+	w.Write([]byte(fmt.Sprintf("%d", n)))
 }
 
 func Get(w http.ResponseWriter, r *http.Request) {
@@ -44,4 +44,34 @@ func Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(b)
+}
+
+func Delete(w http.ResponseWriter, r *http.Request) {
+	var deletedPlaylists []string
+	eggsID, err := router.AuthenticateDeleteRequest(w, r, &deletedPlaylists)
+	if err != nil {
+		return
+	}
+
+	n, err := queries.DeletePlaylists(context.Background(), eggsID, deletedPlaylists)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%d", n)))
+}
+
+func Put(w http.ResponseWriter, r *http.Request) {
+	var playlists queries.PlaylistInputs
+	eggsID, err := router.AuthenticatePostRequest(w, r, &playlists)
+	if err != nil {
+		return
+	}
+
+	n, err := queries.PutPlaylists(context.Background(), eggsID, playlists)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%d", n)))
 }

@@ -14,6 +14,7 @@ import (
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
+	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
 )
 
@@ -75,36 +76,13 @@ func TestUniquePost(t *testing.T) {
 		t.Error(err)
 	}
 
-	b, err := json.Marshal(testUserStubs)
+	initUserStubs(t)
 
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
-	userstubendpoint.Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
+	r := httptest.NewRequest("POST", "/follows", strings.NewReader(`["1"]`))
+	router.CommitMutating(t, r, Post, token, 1)
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1"]`))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1"]`))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusInternalServerError, w.Body.String())
-	}
+	r = httptest.NewRequest("POST", "/follows", strings.NewReader(`["1"]`))
+	router.CommitMutating(t, r, Post, token, 0)
 
 }
 
@@ -123,75 +101,21 @@ func TestPost(t *testing.T) {
 		t.Error(err)
 	}
 
-	b, err := json.Marshal(testUserStubs)
+	initUserStubs(t)
 
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
-	userstubendpoint.Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
+	r := httptest.NewRequest("POST", "/follows", strings.NewReader(`["1","2","3","4","5"]`))
+	router.CommitMutating(t, r, Post, token, 5)
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1","2","3","4","5"]`))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-
-	var follows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &follows)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(follows.Follows) != 5 {
-		t.Errorf("Returned %d liked tracks, want %d", len(follows.Follows), 5)
-	}
-	if follows.Total != 5 {
-		t.Errorf("Returned %d total, want %d", follows.Total, 5)
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 5, 5, []string{os.Getenv("TESTUSER_ID")}, []string{"1", "2", "3", "4", "5"})
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
 	if err != nil {
 		t.Error(err)
 	}
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var emptyFollows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &emptyFollows)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(emptyFollows.Follows) != 0 {
-		t.Errorf("Returned %d liked tracks, want %d", len(emptyFollows.Follows), 0)
-	}
-	if emptyFollows.Total != 0 {
-		t.Errorf("Returned %d total, want %d", emptyFollows.Total, 0)
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 0, 0, []string{}, []string{})
 
 }
 
@@ -206,14 +130,14 @@ func TestGet(t *testing.T) {
 	defer services.RollbackTransaction()
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/follow", nil)
+	r := httptest.NewRequest("GET", "/follows", nil)
 	Get(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusBadRequest, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	Get(w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
@@ -222,162 +146,37 @@ func TestGet(t *testing.T) {
 		t.Errorf("Body is %s, want %s", w.Body.String(), `{"follows":[],"total":0}`)
 	}
 
-	followeeIDs := []string{"1", "2"}
-
 	token, err := userendpoint.CreateTestUser(1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	b, err := json.Marshal(testUserStubs)
+	initUserStubs(t)
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
-	userstubendpoint.Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-
-	b, err = json.Marshal(followeeIDs)
-	if err != nil {
-		t.Error(err)
-	}
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/follow", bytes.NewReader(b))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() != fmt.Sprintf("%s followed 2 users", os.Getenv("TESTUSER_ID")) {
-		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s followed 2 users", os.Getenv("TESTUSER_ID")))
-	}
+	r = httptest.NewRequest("POST", "/follows", strings.NewReader(`["1","2"]`))
+	router.CommitMutating(t, r, Post, token, 2)
 
 	token2, err := userendpoint.CreateTestUser(2)
 	if err != nil {
 		t.Error(err)
 	}
-	b, err = json.Marshal(followeeIDs[:1])
-	if err != nil {
-		t.Error(err)
-	}
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/follow", bytes.NewReader(b))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token2))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() != fmt.Sprintf("%s followed 1 users", os.Getenv("TESTUSER_ID2")) {
-		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s followed 1 users", os.Getenv("TESTUSER_ID2")))
-	}
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/like?followeeIDs=%s", followeeIDs[0]), nil)
-	Get(w, r)
+	r = httptest.NewRequest("POST", "/follows", strings.NewReader(`["1"]`))
+	router.CommitMutating(t, r, Post, token2, 1)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
+	followeeIDs := []string{"1", "2"}
 
-	var follows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &follows)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(follows.Follows) != 2 {
-		t.Errorf("Returned %d following users, want %d", len(follows.Follows), 2)
-	}
-	if follows.Total != 2 {
-		t.Errorf("Returned %d total following users, want %d", follows.Total, 2)
-	}
-	if !follows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
-	}
-	if !follows.ContainsFollowerID(os.Getenv("TESTUSER_ID2")) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID2"))
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?followeeIDs=%s", followeeIDs[0]), nil)
+	testHasFollowersFollowees(t, r, 2, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")}, []string{followeeIDs[0]})
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/like?followeeIDs=%s&limit=1", followeeIDs[0]), nil)
-	Get(w, r)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?followeeIDs=%s&limit=1", followeeIDs[0]), nil)
+	testHasFollowersFollowees(t, r, 1, 2, []string{os.Getenv("TESTUSER_ID2")}, []string{followeeIDs[0]})
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var limitedFollows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &limitedFollows)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(limitedFollows.Follows) != 1 {
-		t.Errorf("Returned %d following users, want %d", len(limitedFollows.Follows), 1)
-	}
-	if limitedFollows.Total != 2 {
-		t.Errorf("Returned %d total following users, want %d", limitedFollows.Total, 2)
-	}
-	if !limitedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) && !limitedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID2")) {
-		t.Errorf("Expected slice to include %s or %s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"))
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?followeeIDs=%s", followeeIDs[1]), nil)
+	testHasFollowersFollowees(t, r, 1, 1, []string{os.Getenv("TESTUSER_ID")}, []string{followeeIDs[1]})
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/like?followeeIDs=%s", followeeIDs[1]), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var follows2 queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &follows2)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(follows2.Follows) != 1 {
-		t.Errorf("Returned %d liking users, want %d", len(follows2.Follows), 1)
-	}
-	if follows2.Total != 1 {
-		t.Errorf("Returned %d total liking users, want %d", follows2.Total, 1)
-	}
-	if !follows2.ContainsFollowerID(os.Getenv("TESTUSER_ID")) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/like?followerIDs=%s&followeeIDs=%s", os.Getenv("TESTUSER_ID"), followeeIDs[0]), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-	var specifiedFollows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &specifiedFollows)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(specifiedFollows.Follows) != 1 {
-		t.Errorf("Returned %d likes, want %d", len(specifiedFollows.Follows), 1)
-	}
-	if specifiedFollows.Total != 1 {
-		t.Errorf("Returned %d total likes, want %d", specifiedFollows.Total, 1)
-	}
-	if !specifiedFollows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) || !specifiedFollows.ContainsFolloweeID(followeeIDs[0]) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
-	}
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?followerIDs=%s&followeeIDs=%s", os.Getenv("TESTUSER_ID"), followeeIDs[0]), nil)
+	testHasFollowersFollowees(t, r, 1, 1, []string{os.Getenv("TESTUSER_ID")}, []string{followeeIDs[0]})
 
 }
 
@@ -396,10 +195,115 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	b, err := json.Marshal(testUserStubs)
+	initUserStubs(t)
+
+	r := httptest.NewRequest("POST", "/follows", strings.NewReader(`["1","2","3","4","5"]`))
+	router.CommitMutating(t, r, Post, token, 5)
+
+	r = httptest.NewRequest("DELETE", "/follows?target=1", nil)
+	router.CommitMutating(t, r, Delete, token, 1)
+
+	r = httptest.NewRequest("DELETE", "/follows?target=1", nil)
+	router.CommitMutating(t, r, Delete, token, 0)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 4, 4, []string{os.Getenv("TESTUSER_ID")}, []string{"2", "3", "4", "5"})
+
+	r = httptest.NewRequest("DELETE", "/follows?target=1,2,3,4,5", nil)
+	router.CommitMutating(t, r, Delete, token, 4)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 0, 0, []string{}, []string{})
+
+}
+
+func TestPut(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	initUserStubs(t)
+
+	r := httptest.NewRequest("PUT", "/follows", strings.NewReader(`["1","2","3"]`))
+	router.CommitMutating(t, r, Put, token, 3)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 3, 3, []string{os.Getenv("TESTUSER_ID")}, []string{"1", "2", "3"})
+
+	r = httptest.NewRequest("PUT", "/follows", strings.NewReader(`["2","3","4","5"]`))
+	router.CommitMutating(t, r, Put, token, 4)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 4, 4, []string{os.Getenv("TESTUSER_ID")}, []string{"2", "3", "4", "5"})
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/userstub", bytes.NewReader(b))
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	Get(w, r)
+	var follows queries.StructuredFollows
+	err = json.Unmarshal([]byte(w.Body.String()), &follows)
+	if err != nil {
+		t.Error(err)
+	}
+	//Timestamps should not have changed for the follows that had been recorded
+	if follows.Follows[0].Followee.EggsID != "4" {
+		t.Errorf("Expected followee to be 4, got %s", follows.Follows[0].Followee.EggsID)
+	}
+	if follows.Follows[2].Followee.EggsID != "2" {
+		t.Errorf("Expected followee to be 2, got %s", follows.Follows[2].Followee.EggsID)
+	}
+}
+
+func testHasFollowersFollowees(t *testing.T, r *http.Request, num int, total int64, followerIDs []string, followeeIDs []string) {
+	t.Helper()
+	w := httptest.NewRecorder()
+	Get(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var follows queries.StructuredFollows
+	err := json.Unmarshal([]byte(w.Body.String()), &follows)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(follows.Follows) != num {
+		t.Errorf("Returned %d follows, want %d", len(follows.Follows), num)
+	}
+	if follows.Total != total {
+		t.Errorf("Returned %d total, want %d", follows.Total, total)
+	}
+	for _, followerID := range followerIDs {
+		if !follows.ContainsFollowerID(followerID) {
+			t.Errorf("Expected slice to include follower %s", followerID)
+		}
+	}
+	for _, followeeID := range followeeIDs {
+		if !follows.ContainsFolloweeID(followeeID) {
+			t.Errorf("Expected slice to include followee %s", followeeID)
+		}
+	}
+}
+
+func initUserStubs(t *testing.T) {
+	t.Helper()
+	b, err := json.Marshal(testUserStubs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/userstubs", bytes.NewReader(b))
 	userstubendpoint.Post(w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
@@ -407,88 +311,4 @@ func TestDelete(t *testing.T) {
 	if w.Body.String() == "" {
 		t.Errorf("Body is empty")
 	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/follow", strings.NewReader(`["1","2","3","4","5"]`))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Post(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() == "" {
-		t.Errorf("Body is empty")
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/delete-follow", strings.NewReader(`["1"]`))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Delete(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() != fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 1) {
-		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 1))
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	var follows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &follows)
-	if err != nil {
-		t.Error(err)
-	}
-	if follows.Total != 4 {
-		t.Errorf("Returned %d total following users, want %d", follows.Total, 4)
-	}
-	if !follows.ContainsFollowerID(os.Getenv("TESTUSER_ID")) {
-		t.Errorf("Expected slice to include %s", os.Getenv("TESTUSER_ID"))
-	}
-	if follows.ContainsFolloweeID("1") {
-		t.Errorf("Expected slice to not include %s", "1")
-	}
-	if !follows.ContainsFolloweeID("2") {
-		t.Errorf("Expected slice to include 2")
-	}
-	if !follows.ContainsFolloweeID("3") {
-		t.Errorf("Expected slice to include 3")
-	}
-	if !follows.ContainsFolloweeID("4") {
-		t.Errorf("Expected slice to include 4")
-	}
-	if !follows.ContainsFolloweeID("5") {
-		t.Errorf("Expected slice to include 5")
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/delete-follow", strings.NewReader(`["1","2","3","4","5"]`))
-	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	Delete(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	if w.Body.String() != fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 4) {
-		t.Errorf("Body is %s, want %s", w.Body.String(), fmt.Sprintf("%s unfollowed %d users", os.Getenv("TESTUSER_ID"), 5))
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follow?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
-	}
-	err = json.Unmarshal([]byte(w.Body.String()), &follows)
-	if err != nil {
-		t.Error(err)
-	}
-	if follows.Total != 0 {
-		t.Errorf("Returned %d total following users, want %d", follows.Total, 0)
-	}
-	if len(follows.Follows) != 0 {
-		t.Errorf("Returned %d following users, want %d", follows.Total, 0)
-	}
-
 }

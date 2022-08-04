@@ -21,6 +21,29 @@ type rawPlaylist struct {
 }
 type rawPlaylists []rawPlaylist
 
+type PlaylistInput struct {
+	PlaylistID   string    `json:"playlistID"`
+	LastModified time.Time `json:"lastModified"`
+}
+type PlaylistInputs []PlaylistInput
+
+func (arr PlaylistInputs) PlaylistIDs() (o []string) {
+	for _, a := range arr {
+		o = append(o, a.PlaylistID)
+	}
+	return
+}
+
+func (arr PlaylistInputs) PartialPlaylists(eggsID string) (o []PartialPlaylist) {
+	for _, a := range arr {
+		o = append(o, PartialPlaylist{
+			PlaylistID: a.PlaylistID,
+			EggsID:     eggsID,
+		})
+	}
+	return
+}
+
 type StructuredPlaylist struct {
 	PlaylistID string    `json:"playlistID"`
 	User       UserStub  `json:"user"`
@@ -122,35 +145,47 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 	return
 }
 
-func PostPlaylists(ctx context.Context, eggsID string, playlistIDs []string) (n int64, err error) {
-	timestamp := time.Now().UnixMilli()
+func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []PlaylistInput) (n int64, err error) {
 	playlists := make([][]interface{}, 0)
-	for i, playlistID := range playlistIDs {
-		playlists = append(playlists, []interface{}{eggsID, playlistID, time.UnixMilli(timestamp - int64(i))})
+	for _, playlist := range playlistInputs {
+		playlists = append(playlists, []interface{}{eggsID, playlist.PlaylistID, playlist.LastModified})
 	}
 	tx, err := fetchTransaction()
 	if err != nil {
 		return
 	}
-	n, err = tx.CopyFrom(
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_playlists")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_playlists (LIKE playlists INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+	_, err = tx.CopyFrom(
 		ctx,
-		pgx.Identifier{"playlists"},
+		pgx.Identifier{"_temp_upsert_playlists"},
 		[]string{"eggs_id", "playlist_id", "last_modified"},
 		pgx.CopyFromRows(playlists),
 	)
 	if err != nil {
 		return
 	}
-	err = commitTransaction(tx)
+	cmd, err := tx.Exec(ctx, "INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified")
+	if err != nil {
+		return
+	}
+	n = cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_playlists")
 	return
 }
 
-func DeletePlaylists(ctx context.Context, eggsID string, playlistIDs []string) (err error) {
+func DeletePlaylists(ctx context.Context, eggsID string, playlistIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
 		return
 	}
-	_, err = tx.Exec(
+	cmd, err := tx.Exec(
 		ctx,
 		"DELETE FROM playlists WHERE eggs_id = $1 AND playlist_id = ANY($2)",
 		eggsID,
@@ -159,6 +194,63 @@ func DeletePlaylists(ctx context.Context, eggsID string, playlistIDs []string) (
 	if err != nil {
 		return
 	}
+	n = cmd.RowsAffected()
 	err = commitTransaction(tx)
+	return
+}
+
+func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInputs) (n int64, err error) {
+
+	playlists := make([][]interface{}, 0)
+	for _, playlist := range playlistInputs {
+		playlists = append(playlists, []interface{}{eggsID, playlist.PlaylistID, playlist.LastModified})
+	}
+
+	tx, err := fetchTransaction()
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_playlists")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_playlists (LIKE playlists INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"_temp_upsert_playlists"},
+		[]string{"eggs_id", "playlist_id", "last_modified"},
+		pgx.CopyFromRows(playlists),
+	)
+	if err != nil {
+		return
+	}
+
+	_, err = tx.Exec(ctx, "INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified")
+	if err != nil {
+		return
+	}
+
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM playlists WHERE eggs_id = $1",
+		eggsID,
+	).Scan(&n)
+	if err != nil {
+		return
+	}
+
+	playlistIDs := make([]string, 0)
+	for _, playlist := range playlistInputs {
+		playlistIDs = append(playlistIDs, playlist.PlaylistID)
+	}
+
+	cmd, err := tx.Exec(ctx, "DELETE FROM playlists WHERE eggs_id = $1 AND playlist_id != ALL($2)", eggsID, playlistIDs)
+
+	n -= cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_playlists")
 	return
 }

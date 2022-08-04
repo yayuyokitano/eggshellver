@@ -138,16 +138,29 @@ func LikeTracks(ctx context.Context, eggsID string, trackIDs []string) (n int64,
 	if err != nil {
 		return
 	}
-	n, err = tx.CopyFrom(
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_likes")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_likes (LIKE user_likes INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+	_, err = tx.CopyFrom(
 		ctx,
-		pgx.Identifier{"user_likes"},
+		pgx.Identifier{"_temp_upsert_likes"},
 		[]string{"eggs_id", "track_id", "added_time"},
 		pgx.CopyFromRows(likes),
 	)
 	if err != nil {
 		return
 	}
-	err = commitTransaction(tx)
+	cmd, err := tx.Exec(ctx, "INSERT INTO user_likes SELECT * FROM _temp_upsert_likes ON CONFLICT DO NOTHING")
+	if err != nil {
+		return
+	}
+	n = cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_likes")
 	return
 }
 
@@ -167,5 +180,56 @@ func DeleteLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64
 	}
 	n = cmd.RowsAffected()
 	err = commitTransaction(tx)
+	return
+}
+
+func PutLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64, err error) {
+	timestamp := time.Now().UnixMilli()
+	likes := make([][]interface{}, 0)
+	for i, trackID := range trackIDs {
+		likes = append(likes, []interface{}{eggsID, trackID, time.UnixMilli(timestamp - int64(i))})
+	}
+
+	tx, err := fetchTransaction()
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_likes")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_likes (LIKE user_likes INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+
+	_, err = tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"_temp_upsert_likes"},
+		[]string{"eggs_id", "track_id", "added_time"},
+		pgx.CopyFromRows(likes),
+	)
+	if err != nil {
+		return
+	}
+
+	_, err = tx.Exec(ctx, "INSERT INTO user_likes SELECT * FROM _temp_upsert_likes ON CONFLICT DO NOTHING")
+	if err != nil {
+		return
+	}
+
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM user_likes WHERE eggs_id = $1",
+		eggsID,
+	).Scan(&n)
+	if err != nil {
+		return
+	}
+
+	cmd, err := tx.Exec(ctx, "DELETE FROM user_likes WHERE eggs_id = $1 AND track_id != ALL($2)", eggsID, trackIDs)
+
+	n -= cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_likes")
 	return
 }

@@ -39,27 +39,30 @@ func main() {
 }
 
 func startServer() {
-	router.Handle("/follow", router.Methods{
-		POST: followendpoint.Post,
-		GET:  followendpoint.Get,
+	router.Handle("/follows", router.Methods{
+		POST:   followendpoint.Post,
+		GET:    followendpoint.Get,
+		DELETE: followendpoint.Delete,
 	})
-	router.Handle("/delete-follow", router.Methods{
-		POST: followendpoint.Delete,
+	router.Handle("/likes", router.Methods{
+		POST:   likeendpoint.Post,
+		GET:    likeendpoint.Get,
+		DELETE: likeendpoint.Delete,
 	})
-	router.Handle("/like", router.Methods{
-		POST: likeendpoint.Post,
-		GET:  likeendpoint.Get,
+	router.Handle("/playlists", router.Methods{
+		POST:   playlistendpoint.Post,
+		GET:    playlistendpoint.Get,
+		DELETE: playlistendpoint.Delete,
 	})
-	router.Handle("/playlist", router.Methods{
-		POST: playlistendpoint.Post,
-		GET:  playlistendpoint.Get,
+	router.Handle("/users", router.Methods{
+		POST:   userendpoint.Post,
+		GET:    userendpoint.Get,
+		DELETE: router.ReturnMethodNotAllowed,
 	})
-	router.Handle("/user", router.Methods{
-		POST: userendpoint.Post,
-		GET:  userendpoint.Get,
-	})
-	router.Handle("/userstub", router.Methods{
-		POST: userstubendpoint.Post,
+	router.Handle("/userstubs", router.Methods{
+		POST:   userstubendpoint.Post,
+		GET:    router.ReturnMethodNotAllowed,
+		DELETE: router.ReturnMethodNotAllowed,
 	})
 	http.ListenAndServe(":10000", nil)
 }

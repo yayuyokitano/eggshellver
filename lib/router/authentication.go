@@ -21,6 +21,15 @@ func AuthenticatePostRequest[V any](w http.ResponseWriter, r *http.Request, v *V
 	return
 }
 
+func AuthenticateDeleteRequest(w http.ResponseWriter, r *http.Request, v *[]string) (eggsID string, err error) {
+	*v = queries.GetArray(r.URL.Query(), "target")
+	eggsID, err = authenticateUser(r.Header.Get("Authorization"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+	}
+	return
+}
+
 func authenticateUser(bearer string) (eggsID string, err error) {
 	eggsID, err = queries.GetEggsIDByToken(context.Background(), bearer[7:])
 	return

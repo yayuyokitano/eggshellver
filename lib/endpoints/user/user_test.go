@@ -45,7 +45,7 @@ func TestPost(t *testing.T) {
 		DeviceID:      os.Getenv("TESTUSER_DEVICEID"),
 		DeviceName:    os.Getenv("TESTUSER_DEVICENAME"),
 	})
-	r := httptest.NewRequest("POST", "/user", bytes.NewReader(b))
+	r := httptest.NewRequest("POST", "/users", bytes.NewReader(b))
 	Post(w, r)
 
 	if w.Code != http.StatusUnauthorized {
@@ -64,7 +64,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/user", bytes.NewReader(b))
+	r = httptest.NewRequest("POST", "/users", bytes.NewReader(b))
 	Post(w, r)
 
 	if w.Code != http.StatusOK {
@@ -85,7 +85,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/user", bytes.NewReader(b))
+	r = httptest.NewRequest("POST", "/users", bytes.NewReader(b))
 
 	Post(w, r)
 
@@ -129,7 +129,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/userstub", bytes.NewReader(userStubs))
+	r = httptest.NewRequest("POST", "/userstubs", bytes.NewReader(userStubs))
 	userstubendpoint.Post(w, r)
 
 	if w.Code != http.StatusOK {
@@ -137,7 +137,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/user", bytes.NewReader(b))
+	r = httptest.NewRequest("POST", "/users", bytes.NewReader(b))
 	Post(w, r)
 
 	if w.Code != http.StatusOK {
@@ -170,101 +170,20 @@ func TestGet(t *testing.T) {
 	}
 	defer services.RollbackTransaction()
 
+	createUser(t, os.Getenv("TESTUSER_AUTHORIZATION"))
+	createUser(t, os.Getenv("TESTUSER_AUTHORIZATION2"))
+
+	r := httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasUsers(t, r, 1, []string{os.Getenv("TESTUSER_ID")})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
+	testHasUsers(t, r, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"), os.Getenv("TESTUSER_FAILID")), nil)
+	testHasUsers(t, r, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")})
+
 	w := httptest.NewRecorder()
-	b, err := json.Marshal(Auth{
-		Authorization: os.Getenv("TESTUSER_AUTHORIZATION"),
-		UserAgent:     os.Getenv("TESTUSER_USERAGENT"),
-		ApVersion:     os.Getenv("TESTUSER_APVERSION"),
-		DeviceID:      os.Getenv("TESTUSER_DEVICEID"),
-		DeviceName:    os.Getenv("TESTUSER_DEVICENAME"),
-	})
-	r := httptest.NewRequest("POST", "/user", bytes.NewReader(b))
-	if err != nil {
-		t.Error(err)
-	}
-
-	Post(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-
-	w = httptest.NewRecorder()
-	b, err = json.Marshal(Auth{
-		Authorization: os.Getenv("TESTUSER_AUTHORIZATION2"),
-		UserAgent:     os.Getenv("TESTUSER_USERAGENT"),
-		ApVersion:     os.Getenv("TESTUSER_APVERSION"),
-		DeviceID:      os.Getenv("TESTUSER_DEVICEID2"),
-		DeviceName:    os.Getenv("TESTUSER_DEVICENAME"),
-	})
-	r = httptest.NewRequest("POST", "/user", bytes.NewReader(b))
-	if err != nil {
-		t.Error(err)
-	}
-
-	Post(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/user?users=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	var users []queries.UserStub
-	err = json.NewDecoder(w.Body).Decode(&users)
-	if len(users) != 1 {
-		t.Errorf("Users count is %d, want %d", len(users), 1)
-	}
-	if users[0].EggsID != os.Getenv("TESTUSER_ID") {
-		t.Errorf("User ID is %s, want %s", users[0].EggsID, os.Getenv("TESTUSER_ID"))
-	}
-	if users[0].IsArtist != false {
-		t.Errorf("User isArtist is %t, want %t", users[0].IsArtist, false)
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/user?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	err = json.NewDecoder(w.Body).Decode(&users)
-	if len(users) != 2 {
-		t.Errorf("Users count is %d, want %d", len(users), 2)
-	}
-	if users[0].EggsID != os.Getenv("TESTUSER_ID") || users[1].EggsID != os.Getenv("TESTUSER_ID2") {
-		t.Errorf("User IDs are %s,%s, want %s,%s", users[0].EggsID, users[1].EggsID, os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"))
-	}
-	if users[0].IsArtist != false || users[1].IsArtist != false {
-		t.Errorf("User isArtist is %t,%t, want %t,%t", users[0].IsArtist, users[1].IsArtist, false, false)
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/user?users=%s,%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"), os.Getenv("TESTUSER_FAILID")), nil)
-	Get(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	err = json.NewDecoder(w.Body).Decode(&users)
-	if len(users) != 2 {
-		t.Errorf("Users count is %d, want %d", len(users), 2)
-	}
-	if users[0].EggsID != os.Getenv("TESTUSER_ID") || users[1].EggsID != os.Getenv("TESTUSER_ID2") {
-		t.Errorf("User IDs are %s,%s, want %s,%s", users[0].EggsID, users[1].EggsID, os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"))
-	}
-	if users[0].IsArtist != false || users[1].IsArtist != false {
-		t.Errorf("User isArtist is %t,%t, want %t,%t", users[0].IsArtist, users[1].IsArtist, false, false)
-	}
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/user?users=%s", os.Getenv("TESTUSER_FAILID")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s", os.Getenv("TESTUSER_FAILID")), nil)
 	Get(w, r)
 
 	if w.Code != http.StatusOK {
@@ -273,5 +192,50 @@ func TestGet(t *testing.T) {
 
 	if w.Body.String() != "[]" {
 		t.Errorf("Body is %s, want %s", w.Body.String(), "[]")
+	}
+}
+
+func testHasUsers(t *testing.T, r *http.Request, num int, expectedUsers []string) {
+	t.Helper()
+	w := httptest.NewRecorder()
+	Get(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var users queries.UserStubs
+	err := json.Unmarshal([]byte(w.Body.String()), &users)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(users) != num {
+		t.Errorf("Returned %d users, want %d", len(users), num)
+	}
+	for _, user := range expectedUsers {
+		if !users.ContainsID(user) {
+			t.Errorf("Expected slice to include user %v", user)
+		}
+	}
+}
+
+func createUser(t *testing.T, authorization string) {
+	w := httptest.NewRecorder()
+	b, err := json.Marshal(Auth{
+		Authorization: authorization,
+		UserAgent:     os.Getenv("TESTUSER_USERAGENT"),
+		ApVersion:     os.Getenv("TESTUSER_APVERSION"),
+		DeviceID:      os.Getenv("TESTUSER_DEVICEID"),
+		DeviceName:    os.Getenv("TESTUSER_DEVICENAME"),
+	})
+	r := httptest.NewRequest("POST", "/users", bytes.NewReader(b))
+	if err != nil {
+		t.Error(err)
+	}
+
+	Post(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
 	}
 }
