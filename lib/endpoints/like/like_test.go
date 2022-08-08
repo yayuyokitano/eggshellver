@@ -51,15 +51,20 @@ func TestUniquePost(t *testing.T) {
 		t.Error(err)
 	}
 
-	musicIDs := make([]string, 0)
-	for i := 0; i < 1; i++ {
-		musicIDs = append(musicIDs, createMusicId())
-	}
+	likes := queries.LikeTargets{{
+		ID:   createMusicId(),
+		Type: "track",
+	}}
 
-	b, err := json.Marshal(musicIDs)
+	b, err := json.Marshal(likes)
+	if err != nil {
+		t.Error(err)
+	}
 
 	r := httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token, 1)
+
+	likes[0].Type = "playlist"
 
 	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token, 0)
@@ -69,12 +74,22 @@ func TestUniquePost(t *testing.T) {
 func TestPost(t *testing.T) {
 	services.Start()
 	defer services.Stop()
-	musicIDs := make([]string, 0)
+	likes := make(queries.LikeTargets, 0)
 	bulkSize := 10_000
 	for i := 0; i < bulkSize; i++ {
-		musicIDs = append(musicIDs, createMusicId())
+		if i%5 == 0 {
+			likes = append(likes, queries.LikeTarget{
+				ID:   createMusicId(),
+				Type: "track",
+			})
+		} else {
+			likes = append(likes, queries.LikeTarget{
+				ID:   createMusicId(),
+				Type: "playlist",
+			})
+		}
 	}
-	b, err := json.Marshal(musicIDs)
+	b, err := json.Marshal(likes)
 	if err != nil {
 		t.Error(err)
 	}
@@ -96,10 +111,16 @@ func TestPost(t *testing.T) {
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&limit=15000", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikes(t, r, bulkSize, int64(bulkSize), []queries.PartialLike{})
 
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetType=track&limit=15000", os.Getenv("TESTUSER_ID")), nil)
+	testHasLikes(t, r, bulkSize/5, int64(bulkSize/5), []queries.PartialLike{})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetType=playlist&limit=15000", os.Getenv("TESTUSER_ID")), nil)
+	testHasLikes(t, r, 4*bulkSize/5, int64(4*bulkSize/5), []queries.PartialLike{})
+
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikes(t, r, 10, int64(bulkSize), []queries.PartialLike{{
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[1],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likes[1].ID,
 	}})
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
@@ -139,16 +160,22 @@ func TestGet(t *testing.T) {
 		t.Errorf("Body is %s, want %s", w.Body.String(), `{"likes":[],"total":0}`)
 	}
 
-	musicIDs := make([]string, 0)
-	for i := 0; i < 2; i++ {
-		musicIDs = append(musicIDs, createMusicId())
+	likeTargets := queries.LikeTargets{
+		{
+			ID:   createMusicId(),
+			Type: "track",
+		},
+		{
+			ID:   createMusicId(),
+			Type: "playlist",
+		},
 	}
 
 	token, err := userendpoint.CreateTestUser(1)
 	if err != nil {
 		t.Error(err)
 	}
-	b, err := json.Marshal(musicIDs)
+	b, err := json.Marshal(likeTargets)
 	if err != nil {
 		t.Error(err)
 	}
@@ -159,7 +186,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	b, err = json.Marshal(musicIDs[:1])
+	b, err = json.Marshal(likeTargets[:1])
 	if err != nil {
 		t.Error(err)
 	}
@@ -167,32 +194,41 @@ func TestGet(t *testing.T) {
 	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token2, 1)
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?trackIDs=%s", musicIDs[0]), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s", likeTargets[0].ID), nil)
 	testHasLikes(t, r, 2, 2, []queries.PartialLike{{
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[0],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[0].ID,
 	}, {
-		EggsID:  os.Getenv("TESTUSER_ID2"),
-		TrackID: musicIDs[0],
+		EggsID:   os.Getenv("TESTUSER_ID2"),
+		TargetID: likeTargets[0].ID,
 	}})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?trackIDs=%s&limit=1", musicIDs[0]), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s&limit=1", likeTargets[0].ID), nil)
 	testHasLikes(t, r, 1, 2, []queries.PartialLike{{
-		EggsID:  os.Getenv("TESTUSER_ID2"),
-		TrackID: musicIDs[0],
+		EggsID:   os.Getenv("TESTUSER_ID2"),
+		TargetID: likeTargets[0].ID,
 	}})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?trackIDs=%s", musicIDs[1]), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s", likeTargets[1].ID), nil)
 	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[1],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[1].ID,
 	}})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&trackIDs=%s", os.Getenv("TESTUSER_ID"), musicIDs[0]), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetIDs=%s", os.Getenv("TESTUSER_ID"), likeTargets[0].ID), nil)
 	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[0],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[0].ID,
 	}})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetType=%s", os.Getenv("TESTUSER_ID"), "track"), nil)
+	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[0].ID,
+	}})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetType=%s", os.Getenv("TESTUSER_ID2"), "playlist"), nil)
+	testHasLikes(t, r, 0, 0, []queries.PartialLike{})
 
 }
 
@@ -211,38 +247,44 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	musicIDs := make([]string, 0)
+	likeTargets := make(queries.LikeTargets, 0)
 	for i := 0; i < 5; i++ {
-		musicIDs = append(musicIDs, createMusicId())
+		likeTargets = append(likeTargets, queries.LikeTarget{
+			ID:   createMusicId(),
+			Type: "track",
+		})
 	}
 
-	b, err := json.Marshal(musicIDs)
+	b, err := json.Marshal(likeTargets)
+	if err != nil {
+		t.Error(err)
+	}
 
 	r := httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
-	router.CommitMutating(t, r, Post, token, int64(len(musicIDs)))
+	router.CommitMutating(t, r, Post, token, int64(len(likeTargets)))
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikes(t, r, 5, 5, []queries.PartialLike{})
 
-	r = httptest.NewRequest("DELETE", fmt.Sprintf("/likes?target=%s", musicIDs[0]), nil)
+	r = httptest.NewRequest("DELETE", fmt.Sprintf("/likes?target=%s", likeTargets[0].ID), nil)
 	router.CommitMutating(t, r, Delete, token, 1)
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikes(t, r, 4, 4, []queries.PartialLike{{
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[1],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[1].ID,
 	}, {
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[2],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[2].ID,
 	}, {
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[3],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[3].ID,
 	}, {
-		EggsID:  os.Getenv("TESTUSER_ID"),
-		TrackID: musicIDs[4],
+		EggsID:   os.Getenv("TESTUSER_ID"),
+		TargetID: likeTargets[4].ID,
 	}})
 
-	s := strings.Join(musicIDs, ",")
+	s := strings.Join(likeTargets.IDs(), ",")
 
 	r = httptest.NewRequest("DELETE", fmt.Sprintf("/likes?target=%s", s), nil)
 	router.CommitMutating(t, r, Delete, token, 4)
@@ -267,41 +309,50 @@ func TestPut(t *testing.T) {
 		t.Error(err)
 	}
 
-	musicIDs := make([]string, 0)
+	likeTargets := make(queries.LikeTargets, 0)
 	for i := 0; i < 5; i++ {
-		musicIDs = append(musicIDs, createMusicId())
+		likeTargets = append(likeTargets, queries.LikeTarget{
+			ID:   createMusicId(),
+			Type: "track",
+		})
 	}
 
-	b, err := json.Marshal(musicIDs[:3])
+	b, err := json.Marshal(likeTargets[:3])
+	if err != nil {
+		t.Error(err)
+	}
 
 	r := httptest.NewRequest("PUT", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Put, token, 3)
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasLikedIDs(t, r, 3, 3, os.Getenv("TESTUSER_ID"), musicIDs[:3])
+	testHasLikedIDs(t, r, 3, 3, os.Getenv("TESTUSER_ID"), likeTargets.IDs()[:3])
 
-	b, err = json.Marshal(musicIDs[1:])
+	b, err = json.Marshal(likeTargets[1:])
+	if err != nil {
+		t.Error(err)
+	}
 
 	r = httptest.NewRequest("PUT", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Put, token, 4)
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasLikedIDs(t, r, 4, 4, os.Getenv("TESTUSER_ID"), musicIDs[1:])
+	testHasLikedIDs(t, r, 4, 4, os.Getenv("TESTUSER_ID"), likeTargets.IDs()[1:])
 
 	w := httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	Get(w, r)
 	var likes queries.StructuredLikes
-	err = json.Unmarshal([]byte(w.Body.String()), &likes)
+	err = json.Unmarshal(w.Body.Bytes(), &likes)
 	if err != nil {
 		t.Error(err)
 	}
 	//Timestamps should not have changed for the tracks that had been recorded
-	if likes.Likes[0].TrackID != musicIDs[3] {
-		t.Errorf("Expected music ID to be %s, got %s", musicIDs[3], likes.Likes[0].TrackID)
+	if likes.Likes[0].ID != likeTargets[3].ID {
+		t.Errorf("Expected music ID to be %s, got %s", likeTargets[3].ID, likes.Likes[0].ID)
 	}
-	if likes.Likes[2].TrackID != musicIDs[1] {
-		t.Errorf("Expected music ID to be %s, got %s", musicIDs[1], likes.Likes[2].TrackID)
+	if likes.Likes[2].ID != likeTargets[1].ID {
+		t.Errorf("Expected music ID to be %s, got %s", likeTargets[1].ID, likes.Likes[2].ID)
 	}
 }
 
@@ -309,8 +360,8 @@ func testHasLikedIDs(t *testing.T, r *http.Request, num int, total int64, eggsID
 	expectedLikes := make([]queries.PartialLike, 0)
 	for _, trackID := range expectedLikedIDs {
 		expectedLikes = append(expectedLikes, queries.PartialLike{
-			EggsID:  eggsID,
-			TrackID: trackID,
+			EggsID:   eggsID,
+			TargetID: trackID,
 		})
 	}
 	testHasLikes(t, r, num, total, expectedLikes)
@@ -326,7 +377,7 @@ func testHasLikes(t *testing.T, r *http.Request, num int, total int64, expectedL
 	}
 
 	var likes queries.StructuredLikes
-	err := json.Unmarshal([]byte(w.Body.String()), &likes)
+	err := json.Unmarshal(w.Body.Bytes(), &likes)
 	if err != nil {
 		t.Error(err)
 	}

@@ -10,7 +10,8 @@ import (
 )
 
 type rawLike struct {
-	TrackID        string    `db:"track_id"`
+	ID             string    `db:"target_id"`
+	Type           string    `db:"target_type"`
 	EggsID         string    `db:"eggs_id"`
 	DisplayName    string    `db:"display_name"`
 	IsArtist       bool      `db:"is_artist"`
@@ -22,7 +23,8 @@ type rawLike struct {
 type rawLikes []rawLike
 
 type StructuredLike struct {
-	TrackID   string    `json:"trackID"`
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
 	User      UserStub  `json:"user"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -33,7 +35,8 @@ type StructuredLikes struct {
 
 func (r rawLike) ToLike() StructuredLike {
 	return StructuredLike{
-		TrackID: r.TrackID,
+		ID:   r.ID,
+		Type: r.Type,
 		User: UserStub{
 			EggsID:         r.EggsID,
 			DisplayName:    r.DisplayName,
@@ -60,7 +63,7 @@ func (arr rawLikes) ToLikes(total int64) (likes StructuredLikes) {
 
 func (arr StructuredLikes) Contains(b PartialLike) bool {
 	for _, a := range arr.Likes {
-		if a.TrackID == b.TrackID && a.User.EggsID == b.EggsID {
+		if a.ID == b.TargetID && a.User.EggsID == b.EggsID {
 			return true
 		}
 	}
@@ -68,39 +71,70 @@ func (arr StructuredLikes) Contains(b PartialLike) bool {
 }
 
 type Like struct {
-	TrackID   string    `json:"trackID" db:"track_id"`
+	TargetID  string    `json:"targetID" db:"target_id"`
 	EggsID    string    `json:"eggsID" db:"eggs_id"`
 	Timestamp time.Time `json:"timestamp" db:"added_time"`
 }
 type Likes []Like
 
 type PartialLike struct {
-	TrackID string `json:"trackID" db:"track_id"`
-	EggsID  string `json:"eggsID" db:"eggs_id"`
+	TargetID string `json:"targetID" db:"target_id"`
+	EggsID   string `json:"eggsID" db:"eggs_id"`
 }
 
-func GetLikedTracks(ctx context.Context, eggsIDs []string, trackIDs []string, paginator Paginator) (likes StructuredLikes, err error) {
-	if len(trackIDs) == 0 && len(eggsIDs) == 0 {
-		err = errors.New("no track IDs or eggs IDs")
+type LikeTarget struct {
+	ID   string `json:"id" db:"target_id"`
+	Type string `json:"type" db:"target_type"`
+}
+type LikeTargets []LikeTarget
+
+func (arr LikeTargets) IDs() []string {
+	ids := make([]string, 0)
+	for _, a := range arr {
+		ids = append(ids, a.ID)
+	}
+	return ids
+}
+
+func (arr LikeTargets) IsValid() bool {
+	for _, a := range arr {
+		if a.ID == "" || a.Type != "track" && a.Type != "playlist" {
+			return false
+		}
+	}
+	return true
+}
+
+func GetLikedObjects(ctx context.Context, eggsIDs []string, targetIDs []string, targetType string, paginator Paginator) (likes StructuredLikes, err error) {
+	if len(targetIDs) == 0 && len(eggsIDs) == 0 {
+		err = errors.New("no target IDs or eggs IDs")
 		return
 	}
-	var query string
-	var query2 string
-	prefix := "SELECT ul.track_id, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.added_time FROM user_likes ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
-	prefix2 := "SELECT COUNT(*) FROM user_likes WHERE "
+
+	query := "SELECT ul.target_id, ul.target_type, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.added_time FROM user_likes ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
+	query2 := "SELECT COUNT(*) FROM user_likes WHERE "
 	args := make([]interface{}, 0)
-	if len(trackIDs) == 0 {
-		query = prefix + "ul.eggs_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
-		query2 = prefix2 + "eggs_id = ANY($1)"
+
+	if targetType == "track" {
+		query += "ul.target_type = 'track' AND "
+		query2 += "target_type = 'track' AND "
+	} else if targetType == "playlist" {
+		query += "ul.target_type = 'playlist' AND "
+		query2 += "target_type = 'playlist' AND "
+	}
+
+	if len(targetIDs) == 0 {
+		query += "ul.eggs_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
+		query2 += "eggs_id = ANY($1)"
 		args = append(args, eggsIDs)
 	} else if len(eggsIDs) == 0 {
-		query = prefix + "ul.track_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
-		query2 = prefix2 + "track_id = ANY($1)"
-		args = append(args, trackIDs)
+		query += "ul.target_id = ANY($1) ORDER BY added_time DESC LIMIT $2 OFFSET $3"
+		query2 += "target_id = ANY($1)"
+		args = append(args, targetIDs)
 	} else {
-		query = prefix + "ul.track_id = ANY($1) AND ul.eggs_id = ANY($2) ORDER BY added_time DESC LIMIT $3 OFFSET $4"
-		query2 = prefix2 + "track_id = ANY($1) AND eggs_id = ANY($2)"
-		args = append(args, trackIDs, eggsIDs)
+		query += "ul.target_id = ANY($1) AND ul.eggs_id = ANY($2) ORDER BY added_time DESC LIMIT $3 OFFSET $4"
+		query2 += "target_id = ANY($1) AND eggs_id = ANY($2)"
+		args = append(args, targetIDs, eggsIDs)
 	}
 	args = append(args, paginator.Limit, paginator.Offset)
 	rawLikes := make(rawLikes, 0)
@@ -128,11 +162,11 @@ func GetLikedTracks(ctx context.Context, eggsIDs []string, trackIDs []string, pa
 	return
 }
 
-func LikeTracks(ctx context.Context, eggsID string, trackIDs []string) (n int64, err error) {
+func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	likes := make([][]interface{}, 0)
-	for i, trackID := range trackIDs {
-		likes = append(likes, []interface{}{eggsID, trackID, time.UnixMilli(timestamp - int64(i))})
+	for i, target := range targets {
+		likes = append(likes, []interface{}{eggsID, target.ID, target.Type, time.UnixMilli(timestamp - int64(i))})
 	}
 	tx, err := fetchTransaction()
 	if err != nil {
@@ -149,7 +183,7 @@ func LikeTracks(ctx context.Context, eggsID string, trackIDs []string) (n int64,
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"_temp_upsert_likes"},
-		[]string{"eggs_id", "track_id", "added_time"},
+		[]string{"eggs_id", "target_id", "target_type", "added_time"},
 		pgx.CopyFromRows(likes),
 	)
 	if err != nil {
@@ -164,16 +198,16 @@ func LikeTracks(ctx context.Context, eggsID string, trackIDs []string) (n int64,
 	return
 }
 
-func DeleteLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64, err error) {
+func DeleteLikes(ctx context.Context, eggsID string, targetIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
 		return
 	}
 	cmd, err := tx.Exec(
 		ctx,
-		"DELETE FROM user_likes WHERE eggs_id = $1 AND track_id = ANY($2)",
+		"DELETE FROM user_likes WHERE eggs_id = $1 AND target_id = ANY($2)",
 		eggsID,
-		trackIDs,
+		targetIDs,
 	)
 	if err != nil {
 		return
@@ -183,11 +217,11 @@ func DeleteLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64
 	return
 }
 
-func PutLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64, err error) {
+func PutLikes(ctx context.Context, eggsID string, targets LikeTargets) (n int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	likes := make([][]interface{}, 0)
-	for i, trackID := range trackIDs {
-		likes = append(likes, []interface{}{eggsID, trackID, time.UnixMilli(timestamp - int64(i))})
+	for i, target := range targets {
+		likes = append(likes, []interface{}{eggsID, target.ID, target.Type, time.UnixMilli(timestamp - int64(i))})
 	}
 
 	tx, err := fetchTransaction()
@@ -206,7 +240,7 @@ func PutLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64, e
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"_temp_upsert_likes"},
-		[]string{"eggs_id", "track_id", "added_time"},
+		[]string{"eggs_id", "target_id", "target_type", "added_time"},
 		pgx.CopyFromRows(likes),
 	)
 	if err != nil {
@@ -227,7 +261,10 @@ func PutLikes(ctx context.Context, eggsID string, trackIDs []string) (n int64, e
 		return
 	}
 
-	cmd, err := tx.Exec(ctx, "DELETE FROM user_likes WHERE eggs_id = $1 AND track_id != ALL($2)", eggsID, trackIDs)
+	cmd, err := tx.Exec(ctx, "DELETE FROM user_likes WHERE eggs_id = $1 AND target_id != ALL($2)", eggsID, targets.IDs())
+	if err != nil {
+		return
+	}
 
 	n -= cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_likes")

@@ -11,13 +11,18 @@ import (
 )
 
 func Post(w http.ResponseWriter, r *http.Request) {
-	var likedTracks []string
+	var likedTracks queries.LikeTargets
 	eggsID, err := router.AuthenticatePostRequest(w, r, &likedTracks)
 	if err != nil {
 		return
 	}
 
-	n, err := queries.LikeTracks(context.Background(), eggsID, likedTracks)
+	if !likedTracks.IsValid() {
+		http.Error(w, "invalid likedTracks", http.StatusBadRequest)
+		return
+	}
+
+	n, err := queries.LikeObjects(context.Background(), eggsID, likedTracks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -28,12 +33,13 @@ func Post(w http.ResponseWriter, r *http.Request) {
 func Get(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	eggsIDs := queries.GetArray(query, "eggsIDs")
-	trackIDs := queries.GetArray(query, "trackIDs")
+	targetIDs := queries.GetArray(query, "targetIDs")
+	targetType := r.URL.Query().Get("targetType")
 	paginator := queries.InitializePaginator(query)
-	if len(eggsIDs) == 0 && len(trackIDs) == 0 {
-		http.Error(w, "eggsIDs and/or trackIDs is required", http.StatusBadRequest)
+	if len(eggsIDs) == 0 && len(targetIDs) == 0 {
+		http.Error(w, "eggsIDs and/or targetIDs is required", http.StatusBadRequest)
 	}
-	likedTracks, err := queries.GetLikedTracks(context.Background(), eggsIDs, trackIDs, paginator)
+	likedTracks, err := queries.GetLikedObjects(context.Background(), eggsIDs, targetIDs, targetType, paginator)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -62,9 +68,14 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func Put(w http.ResponseWriter, r *http.Request) {
-	var likes []string
+	var likes queries.LikeTargets
 	eggsID, err := router.AuthenticatePostRequest(w, r, &likes)
 	if err != nil {
+		return
+	}
+
+	if !likes.IsValid() {
+		http.Error(w, "invalid likes", http.StatusBadRequest)
 		return
 	}
 

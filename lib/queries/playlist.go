@@ -249,6 +249,9 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 	}
 
 	cmd, err := tx.Exec(ctx, "DELETE FROM playlists WHERE eggs_id = $1 AND playlist_id != ALL($2)", eggsID, playlistIDs)
+	if err != nil {
+		return
+	}
 
 	n -= cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_playlists")
