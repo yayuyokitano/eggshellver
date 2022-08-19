@@ -61,6 +61,9 @@ func TestUniquePost(t *testing.T) {
 	}
 
 	b, err := json.Marshal(playlists)
+	if err != nil {
+		t.Error(err)
+	}
 
 	r := httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token, 1)
@@ -229,6 +232,9 @@ func TestDelete(t *testing.T) {
 	}
 
 	b, err := json.Marshal(playlists)
+	if err != nil {
+		t.Error(err)
+	}
 
 	r := httptest.NewRequest("POST", "/playlists", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token, int64(len(playlists)))
@@ -288,6 +294,9 @@ func TestPut(t *testing.T) {
 	}
 
 	b, err := json.Marshal(playlists[:3])
+	if err != nil {
+		t.Error(err)
+	}
 
 	r := httptest.NewRequest("PUT", "/playlists", bytes.NewReader(b))
 	router.CommitMutating(t, r, Put, token, 3)
@@ -296,6 +305,9 @@ func TestPut(t *testing.T) {
 	testHasPlaylists(t, r, 3, 3, playlists.PartialPlaylists(os.Getenv("TESTUSER_ID"))[:3])
 
 	b, err = json.Marshal(playlists[1:])
+	if err != nil {
+		t.Error(err)
+	}
 
 	r = httptest.NewRequest("PUT", "/playlists", bytes.NewReader(b))
 	router.CommitMutating(t, r, Put, token, 4)
@@ -308,7 +320,7 @@ func TestPut(t *testing.T) {
 	Get(w, r)
 
 	var playlistResults queries.StructuredPlaylists
-	err = json.Unmarshal([]byte(w.Body.String()), &playlistResults)
+	err = json.Unmarshal(w.Body.Bytes(), &playlistResults)
 	if err != nil {
 		t.Error(err)
 	}
@@ -331,7 +343,7 @@ func testHasPlaylists(t *testing.T, r *http.Request, num int, total int64, expec
 	}
 
 	var playlists queries.StructuredPlaylists
-	err := json.Unmarshal([]byte(w.Body.String()), &playlists)
+	err := json.Unmarshal(w.Body.Bytes(), &playlists)
 	if err != nil {
 		t.Error(err)
 	}

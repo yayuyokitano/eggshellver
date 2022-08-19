@@ -45,6 +45,10 @@ func TestPost(t *testing.T) {
 		DeviceID:      os.Getenv("TESTUSER_DEVICEID"),
 		DeviceName:    os.Getenv("TESTUSER_DEVICENAME"),
 	})
+	if err != nil {
+		t.Error(err)
+	}
+
 	r := httptest.NewRequest("POST", "/users", bytes.NewReader(b))
 	Post(w, r)
 
@@ -205,7 +209,7 @@ func testHasUsers(t *testing.T, r *http.Request, num int, expectedUsers []string
 	}
 
 	var users queries.UserStubs
-	err := json.Unmarshal([]byte(w.Body.String()), &users)
+	err := json.Unmarshal(w.Body.Bytes(), &users)
 	if err != nil {
 		t.Error(err)
 	}

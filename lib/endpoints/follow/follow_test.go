@@ -250,7 +250,7 @@ func TestPut(t *testing.T) {
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	Get(w, r)
 	var follows queries.StructuredFollows
-	err = json.Unmarshal([]byte(w.Body.String()), &follows)
+	err = json.Unmarshal(w.Body.Bytes(), &follows)
 	if err != nil {
 		t.Error(err)
 	}
@@ -273,7 +273,7 @@ func testHasFollowersFollowees(t *testing.T, r *http.Request, num int, total int
 	}
 
 	var follows queries.StructuredFollows
-	err := json.Unmarshal([]byte(w.Body.String()), &follows)
+	err := json.Unmarshal(w.Body.Bytes(), &follows)
 	if err != nil {
 		t.Error(err)
 	}

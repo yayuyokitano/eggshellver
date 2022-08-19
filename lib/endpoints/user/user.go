@@ -48,6 +48,10 @@ func Post(w http.ResponseWriter, r *http.Request) {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://api-flmg.eggs.mu/v1/users/users/profile", nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	req.Header.Set("Authorization", auth.Authorization)
 	req.Header.Set("User-Agent", auth.UserAgent)
 	req.Header.Set("apversion", auth.ApVersion)
