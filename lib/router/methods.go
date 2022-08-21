@@ -8,6 +8,7 @@ import (
 type Methods struct {
 	GET    func(http.ResponseWriter, *http.Request)
 	POST   func(http.ResponseWriter, *http.Request)
+	PUT    func(http.ResponseWriter, *http.Request)
 	DELETE func(http.ResponseWriter, *http.Request)
 }
 
@@ -20,6 +21,8 @@ func Handle(endpoint string, m Methods) {
 			m.GET(w, r)
 		case "POST":
 			m.POST(w, r)
+		case "PUT":
+			m.PUT(w, r)
 		case "DELETE":
 			m.DELETE(w, r)
 		case "OPTIONS": // CORS preflight request

@@ -42,26 +42,31 @@ func startServer() {
 	router.Handle("/follows", router.Methods{
 		POST:   followendpoint.Post,
 		GET:    followendpoint.Get,
+		PUT:    followendpoint.Put,
 		DELETE: followendpoint.Delete,
 	})
 	router.Handle("/likes", router.Methods{
 		POST:   likeendpoint.Post,
 		GET:    likeendpoint.Get,
+		PUT:    likeendpoint.Put,
 		DELETE: likeendpoint.Delete,
 	})
 	router.Handle("/playlists", router.Methods{
 		POST:   playlistendpoint.Post,
 		GET:    playlistendpoint.Get,
+		PUT:    playlistendpoint.Put,
 		DELETE: playlistendpoint.Delete,
 	})
 	router.Handle("/users", router.Methods{
 		POST:   userendpoint.Post,
 		GET:    userendpoint.Get,
+		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
 	})
 	router.Handle("/userstubs", router.Methods{
 		POST:   userstubendpoint.Post,
 		GET:    router.ReturnMethodNotAllowed,
+		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
 	})
 	http.ListenAndServe(":10000", nil)
