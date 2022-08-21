@@ -36,4 +36,5 @@ func ReturnMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 
 func handleCors(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "https://eggs.mu")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, OPTIONS")
 }
