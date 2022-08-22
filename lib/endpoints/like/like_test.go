@@ -317,7 +317,15 @@ func TestPut(t *testing.T) {
 		})
 	}
 
-	b, err := json.Marshal(likeTargets[:3])
+	playlistTarget := queries.LikeTarget{
+		ID:   createMusicId(),
+		Type: "playlist",
+	}
+
+	b, err := json.Marshal(queries.LikeTargetsFixed{
+		Targets: likeTargets[:3],
+		Type:    "track",
+	})
 	if err != nil {
 		t.Error(err)
 	}
@@ -328,7 +336,10 @@ func TestPut(t *testing.T) {
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikedIDs(t, r, 3, 3, os.Getenv("TESTUSER_ID"), likeTargets.IDs()[:3])
 
-	b, err = json.Marshal(likeTargets[1:])
+	b, err = json.Marshal(queries.LikeTargetsFixed{
+		Targets: likeTargets[1:],
+		Type:    "track",
+	})
 	if err != nil {
 		t.Error(err)
 	}
@@ -354,6 +365,19 @@ func TestPut(t *testing.T) {
 	if likes.Likes[2].ID != likeTargets[1].ID {
 		t.Errorf("Expected music ID to be %s, got %s", likeTargets[1].ID, likes.Likes[2].ID)
 	}
+
+	b, err = json.Marshal(queries.LikeTargetsFixed{
+		Targets: []queries.LikeTarget{playlistTarget},
+		Type:    "playlist",
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	r = httptest.NewRequest("PUT", "/likes", bytes.NewReader(b))
+	router.CommitMutating(t, r, Put, token, 1)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasLikedIDs(t, r, 5, 5, os.Getenv("TESTUSER_ID"), append(likeTargets.IDs()[1:], playlistTarget.ID))
 }
 
 func testHasLikedIDs(t *testing.T, r *http.Request, num int, total int64, eggsID string, expectedLikedIDs []string) {

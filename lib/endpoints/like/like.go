@@ -68,7 +68,7 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func Put(w http.ResponseWriter, r *http.Request) {
-	var likes queries.LikeTargets
+	var likes queries.LikeTargetsFixed
 	eggsID, err := router.AuthenticatePostRequest(w, r, &likes)
 	if err != nil {
 		return
