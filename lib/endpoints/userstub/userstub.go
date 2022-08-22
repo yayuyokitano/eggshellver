@@ -16,10 +16,10 @@ func Post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	n, err := queries.InsertUserStubs(context.Background(), users)
+	n, err := queries.PostUserStubs(context.Background(), users)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(fmt.Sprintf("%d users inserted", n)))
+	w.Write([]byte(fmt.Sprintf("%d users modified", n)))
 }

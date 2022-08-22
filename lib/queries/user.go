@@ -75,7 +75,7 @@ func (u User) IsArtist() bool {
 	return u.Data.ArtistID != 0
 }
 
-func InsertUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
+func PostUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
 	userStubs := make([][]interface{}, 0)
 	for _, user := range users {
 		userStubs = append(userStubs, []interface{}{
@@ -91,16 +91,29 @@ func InsertUserStubs(ctx context.Context, users []UserStub) (n int64, err error)
 	if err != nil {
 		return
 	}
-	n, err = tx.CopyFrom(
+	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_users")
+	if err != nil {
+		return
+	}
+	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_users (LIKE users INCLUDING ALL) ON COMMIT DROP")
+	if err != nil {
+		return
+	}
+	_, err = tx.CopyFrom(
 		ctx,
-		pgx.Identifier{"users"},
+		pgx.Identifier{"_temp_upsert_users"},
 		[]string{"eggs_id", "display_name", "is_artist", "image_data_path", "prefecture_code", "profile_text"},
 		pgx.CopyFromRows(userStubs),
 	)
 	if err != nil {
 		return
 	}
-	err = commitTransaction(tx)
+	cmd, err := tx.Exec(ctx, "INSERT INTO users SELECT * FROM _temp_upsert_users ON CONFLICT (eggs_id) DO UPDATE SET display_name = EXCLUDED.display_name, is_artist = EXCLUDED.is_artist, image_data_path = EXCLUDED.image_data_path, prefecture_code = EXCLUDED.prefecture_code, profile_text = EXCLUDED.profile_text")
+	if err != nil {
+		return
+	}
+	n = cmd.RowsAffected()
+	err = commitTransaction(tx, "_temp_upsert_users")
 	return
 }
 
