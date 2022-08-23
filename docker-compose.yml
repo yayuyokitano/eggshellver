@@ -8,21 +8,43 @@ services:
     depends_on:
       - db
     ports:
-      - "10000:10000"
+      - 10000:10000
     image: yayuyokitano/golang:1.18.3-alpine3.16
     platform: linux/amd64
     #deploy:
       #restart_policy:
         #condition: on-failure
+  
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+  
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   db:
     image: postgres:14.4-alpine
     env_file:
       - .env
     ports:
-      - "5432:5432"
+      - 5432:5432
     volumes:
       - db:/var/lib/postgresql/data
+  
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    ports:
+      - 9187:9187
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_GRAFANA_USER}:${POSTGRES_GRAFANA_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable"
+    links:
+      - db
+      - prometheus
 
 volumes:
   db:

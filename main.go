@@ -88,9 +88,20 @@ func performMigration(firstTime bool) {
 		fmt.Println("Failed to create database, probably already exists.")
 	}
 
+	_, err = db.Exec(fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", os.Getenv("POSTGRES_GRAFANA_USER"), os.Getenv("POSTGRES_GRAFANA_PASSWORD")))
+	if err != nil {
+		fmt.Println("Failed to create user, probably already exists.")
+	}
+
+	_, err = db.Exec(fmt.Sprintf("GRANT pg_read_all_data TO %s", os.Getenv("POSTGRES_GRAFANA_USER")))
+	if err != nil {
+		fmt.Println("Failed to grant user permissions, probably already exists.")
+	}
+
 	n, err := migrate.Exec(db, "postgres", migrations, migrate.Up)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Printf("Applied %d migrations!\n", n)
+
 }
