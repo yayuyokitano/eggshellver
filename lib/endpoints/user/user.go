@@ -49,6 +49,7 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 
 	client := &http.Client{Timeout: 1 * time.Minute}
 	req, err := http.NewRequest("GET", "https://api-flmg.eggs.mu/v1/users/users/profile", nil)
+	t := time.Now()
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
@@ -59,18 +60,25 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	req.Header.Set("devicename", auth.DeviceName)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Origin", "https://eggs.mu")
+	logging.LogFetch(req)
 	resp, err := client.Do(req)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return logging.SE(http.StatusInternalServerError, err)
+	}
+
+	logging.LogFetchCompleted(resp, respBody, t)
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		return logging.SE(http.StatusUnauthorized, errors.New("unauthorized"))
 	}
 
 	var user queries.User
-	err = json.NewDecoder(resp.Body).Decode(&user)
+	err = json.Unmarshal(respBody, &user)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
