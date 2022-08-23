@@ -89,14 +89,17 @@ func PostUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
 	}
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_users")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_users (LIKE users INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.CopyFrom(
@@ -106,10 +109,12 @@ func PostUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
 		pgx.CopyFromRows(userStubs),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(ctx, "INSERT INTO users SELECT * FROM _temp_upsert_users ON CONFLICT (eggs_id) DO UPDATE SET display_name = EXCLUDED.display_name, is_artist = EXCLUDED.is_artist, image_data_path = EXCLUDED.image_data_path, prefecture_code = EXCLUDED.prefecture_code, profile_text = EXCLUDED.profile_text")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -120,6 +125,7 @@ func PostUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
 func InsertUser(ctx context.Context, user User, token string) (err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(
@@ -134,6 +140,7 @@ func InsertUser(ctx context.Context, user User, token string) (err error) {
 		token,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -143,6 +150,7 @@ func InsertUser(ctx context.Context, user User, token string) (err error) {
 func UpdateUserToken(ctx context.Context, user User, token string) (err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(
@@ -152,6 +160,7 @@ func UpdateUserToken(ctx context.Context, user User, token string) (err error) {
 		user.Data.EggsID,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -161,6 +170,7 @@ func UpdateUserToken(ctx context.Context, user User, token string) (err error) {
 func UpdateUserDetails(ctx context.Context, user User) (err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(
@@ -174,6 +184,7 @@ func UpdateUserDetails(ctx context.Context, user User) (err error) {
 		user.Data.EggsID,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -184,6 +195,7 @@ func GetUsers(ctx context.Context, users []string) (output []UserStub, err error
 	output = make([]UserStub, 0)
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = pgxscan.Select(
@@ -194,6 +206,7 @@ func GetUsers(ctx context.Context, users []string) (output []UserStub, err error
 		users,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -203,6 +216,7 @@ func GetUsers(ctx context.Context, users []string) (output []UserStub, err error
 func GetEggsIDByToken(ctx context.Context, token string) (eggsID string, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = tx.QueryRow(
@@ -211,6 +225,7 @@ func GetEggsIDByToken(ctx context.Context, token string) (eggsID string, err err
 		token,
 	).Scan(&eggsID)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -220,6 +235,7 @@ func GetEggsIDByToken(ctx context.Context, token string) (eggsID string, err err
 func GetUserCredentials(ctx context.Context, user User) (eggsID string, token string, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = tx.QueryRow(
@@ -228,6 +244,7 @@ func GetUserCredentials(ctx context.Context, user User) (eggsID string, token st
 		user.Data.EggsID,
 	).Scan(&eggsID, &token)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -237,6 +254,7 @@ func GetUserCredentials(ctx context.Context, user User) (eggsID string, token st
 func UNSAFEDeleteUser(ctx context.Context, eggsID string) (err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(
@@ -245,6 +263,7 @@ func UNSAFEDeleteUser(ctx context.Context, eggsID string) (err error) {
 		eggsID,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)

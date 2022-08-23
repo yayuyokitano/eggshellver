@@ -22,19 +22,38 @@ func fetchTransaction() (tx pgx.Tx, err error) {
 	tx = services.Tx
 	if tx == nil {
 		tx, err = services.Pool.BeginTx(context.Background(), pgx.TxOptions{})
+		if err != nil {
+			RollbackTransaction(tx)
+			return
+		}
 	}
 	return
 }
 
 func commitTransaction(tx pgx.Tx, tempTables ...string) (err error) {
+	ctx := context.Background()
 	if services.IsTesting {
 		for _, table := range tempTables {
-			_, err = tx.Exec(context.Background(), "DROP TABLE IF EXISTS "+table)
+			_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS "+table)
 		}
 		return
 	}
-	err = tx.Commit(context.Background())
+	err = tx.Commit(ctx)
+	if err != nil {
+		RollbackTransaction(tx)
+	}
 	return
+}
+
+func RollbackTransaction(tx pgx.Tx) {
+	ctx := context.Background()
+	if services.IsTesting || tx == nil {
+		return
+	}
+	err := tx.Rollback(ctx)
+	if err != nil {
+		services.LogError(err)
+	}
 }
 
 func GenerateRandomString(s int) (string, error) {

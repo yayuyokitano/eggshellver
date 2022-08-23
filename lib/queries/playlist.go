@@ -123,6 +123,7 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 	rawPlaylists := make(rawPlaylists, 0)
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = pgxscan.Select(
@@ -133,11 +134,13 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 		args...,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	var total int64
 	err = tx.QueryRow(ctx, query2, args[:len(args)-2]...).Scan(&total)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -152,14 +155,17 @@ func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []Playlist
 	}
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_playlists")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_playlists (LIKE playlists INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.CopyFrom(
@@ -169,10 +175,12 @@ func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []Playlist
 		pgx.CopyFromRows(playlists),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(ctx, "INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -183,6 +191,7 @@ func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []Playlist
 func DeletePlaylists(ctx context.Context, eggsID string, playlistIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(
@@ -192,6 +201,7 @@ func DeletePlaylists(ctx context.Context, eggsID string, playlistIDs []string) (
 		playlistIDs,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -208,14 +218,17 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_playlists")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_playlists (LIKE playlists INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -226,11 +239,13 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 		pgx.CopyFromRows(playlists),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
 	_, err = tx.Exec(ctx, "INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -240,6 +255,7 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 		eggsID,
 	).Scan(&n)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -250,6 +266,7 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 
 	cmd, err := tx.Exec(ctx, "DELETE FROM playlists WHERE eggs_id = $1 AND playlist_id != ALL($2)", eggsID, playlistIDs)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 

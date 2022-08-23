@@ -155,6 +155,7 @@ func GetFollows(ctx context.Context, followerIDs []string, followeeIDs []string,
 
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = pgxscan.Select(
@@ -165,10 +166,12 @@ func GetFollows(ctx context.Context, followerIDs []string, followeeIDs []string,
 		args...,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	var total int64
 	if err = tx.QueryRow(ctx, query2, args[:len(args)-2]...).Scan(&total); err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -184,14 +187,17 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 	}
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_follows")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_follows (LIKE user_follows INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.CopyFrom(
@@ -201,10 +207,12 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 		pgx.CopyFromRows(follows),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(ctx, "INSERT INTO user_follows SELECT * FROM _temp_upsert_follows ON CONFLICT DO NOTHING")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -215,6 +223,7 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(
@@ -224,6 +233,7 @@ func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string)
 		followeeIDs,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -240,14 +250,17 @@ func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n
 
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_follows")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_follows (LIKE user_follows INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -258,11 +271,13 @@ func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n
 		pgx.CopyFromRows(follows),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
 	_, err = tx.Exec(ctx, "INSERT INTO user_follows SELECT * FROM _temp_upsert_follows ON CONFLICT DO NOTHING")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -272,11 +287,13 @@ func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n
 		followerID,
 	).Scan(&n)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
 	cmd, err := tx.Exec(ctx, "DELETE FROM user_follows WHERE follower_id = $1 AND followee_id != ALL($2)", followerID, followeeIDs)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 

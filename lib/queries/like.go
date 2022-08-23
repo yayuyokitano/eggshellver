@@ -167,6 +167,7 @@ func GetLikedObjects(ctx context.Context, eggsIDs []string, targetIDs []string, 
 	rawLikes := make(rawLikes, 0)
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = pgxscan.Select(
@@ -177,11 +178,13 @@ func GetLikedObjects(ctx context.Context, eggsIDs []string, targetIDs []string, 
 		args...,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	var total int64
 	err = tx.QueryRow(ctx, query2, args[:len(args)-2]...).Scan(&total)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	err = commitTransaction(tx)
@@ -197,14 +200,17 @@ func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int
 	}
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_likes")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_likes (LIKE user_likes INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.CopyFrom(
@@ -214,10 +220,12 @@ func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int
 		pgx.CopyFromRows(likes),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(ctx, "INSERT INTO user_likes SELECT * FROM _temp_upsert_likes ON CONFLICT DO NOTHING")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -228,6 +236,7 @@ func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int
 func DeleteLikes(ctx context.Context, eggsID string, targetIDs []string) (n int64, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	cmd, err := tx.Exec(
@@ -237,6 +246,7 @@ func DeleteLikes(ctx context.Context, eggsID string, targetIDs []string) (n int6
 		targetIDs,
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	n = cmd.RowsAffected()
@@ -253,14 +263,17 @@ func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n i
 
 	tx, err := fetchTransaction()
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "DROP TABLE IF EXISTS _temp_upsert_likes")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 	_, err = tx.Exec(ctx, "CREATE TEMPORARY TABLE _temp_upsert_likes (LIKE user_likes INCLUDING ALL) ON COMMIT DROP")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -271,11 +284,13 @@ func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n i
 		pgx.CopyFromRows(likes),
 	)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
 	_, err = tx.Exec(ctx, "INSERT INTO user_likes SELECT * FROM _temp_upsert_likes ON CONFLICT DO NOTHING")
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
@@ -286,11 +301,13 @@ func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n i
 		targets.Type,
 	).Scan(&n)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 
 	cmd, err := tx.Exec(ctx, "DELETE FROM user_likes WHERE eggs_id = $1 AND target_id != ALL($2) AND target_type = $3", eggsID, targets.IDs(), targets.Type)
 	if err != nil {
+		RollbackTransaction(tx)
 		return
 	}
 

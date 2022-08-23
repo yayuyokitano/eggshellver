@@ -16,7 +16,8 @@ func Start() (err error) {
 	if os.Getenv("TESTING") == "true" {
 		IsTesting = true
 	}
-	connectionString := fmt.Sprintf("postgresql://%s:%s@db:5432/%s",
+
+	connectionString := fmt.Sprintf("postgresql://%s:%s@db:5432/%s?pool_max_conns=100",
 		os.Getenv("POSTGRES_USER"), url.QueryEscape(os.Getenv("POSTGRES_PASSWORD")), os.Getenv("POSTGRES_DB"))
 	Pool, err = pgxpool.Connect(context.Background(), connectionString)
 	if err != nil {

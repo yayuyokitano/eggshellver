@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/yayuyokitano/eggshellver/lib/queries"
 )
@@ -46,7 +47,7 @@ func Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 1 * time.Minute}
 	req, err := http.NewRequest("GET", "https://api-flmg.eggs.mu/v1/users/users/profile", nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
