@@ -1,40 +1,74 @@
 package router
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
+
+	"github.com/yayuyokitano/eggshellver/lib/logging"
 )
 
+type HTTPImplementer = func(io.Writer, *http.Request, []byte) *logging.StatusError
+
 type Methods struct {
-	GET    func(http.ResponseWriter, *http.Request)
-	POST   func(http.ResponseWriter, *http.Request)
-	PUT    func(http.ResponseWriter, *http.Request)
-	DELETE func(http.ResponseWriter, *http.Request)
+	GET    HTTPImplementer
+	POST   HTTPImplementer
+	PUT    HTTPImplementer
+	DELETE HTTPImplementer
 }
 
 func Handle(endpoint string, m Methods) {
 	http.HandleFunc(endpoint, func(w http.ResponseWriter, r *http.Request) {
-		handleCors(w)
+		var method HTTPImplementer
 
 		switch r.Method {
 		case "GET":
-			m.GET(w, r)
+			method = m.GET
 		case "POST":
-			m.POST(w, r)
+			method = m.POST
 		case "PUT":
-			m.PUT(w, r)
+			method = m.PUT
 		case "DELETE":
-			m.DELETE(w, r)
+			method = m.DELETE
 		case "OPTIONS": // CORS preflight request
-			w.WriteHeader(http.StatusOK)
+			method = HandleCORSPreflight
 		default:
-			ReturnMethodNotAllowed(w, r)
+			method = ReturnMethodNotAllowed
 		}
+
+		HandleMethod(method, w, r)
 	})
 }
 
-func ReturnMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, fmt.Sprintf("Method %s is not allowed", r.Method), http.StatusMethodNotAllowed)
+func HandleMethod(m HTTPImplementer, w http.ResponseWriter, r *http.Request) {
+	t := time.Now()
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		logging.HandleError(*logging.SE(http.StatusInternalServerError, err), r, b, t)
+		return
+	}
+	logging.LogRequest(r, b)
+	handleCors(w)
+
+	var log bytes.Buffer
+	mw := io.MultiWriter(w, &log)
+	se := m(mw, r, b)
+	if se != nil {
+		logging.HandleError(*se, r, b, t)
+		http.Error(w, se.Err.Error(), se.Code)
+		return
+	}
+	logging.LogRequestCompletion(log, r, t)
+}
+
+func HandleCORSPreflight(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
+	return nil
+}
+
+func ReturnMethodNotAllowed(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
+	return logging.SE(http.StatusMethodNotAllowed, fmt.Errorf("method %s is not allowed", r.Method))
 }
 
 func handleCors(w http.ResponseWriter) {

@@ -145,14 +145,14 @@ func TestGet(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/likes", nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusBadRequest, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
@@ -352,7 +352,7 @@ func TestPut(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	var likes queries.StructuredLikes
 	err = json.Unmarshal(w.Body.Bytes(), &likes)
 	if err != nil {
@@ -394,7 +394,7 @@ func testHasLikedIDs(t *testing.T, r *http.Request, num int, total int64, eggsID
 func testHasLikes(t *testing.T, r *http.Request, num int, total int64, expectedLikes []queries.PartialLike) {
 	t.Helper()
 	w := httptest.NewRecorder()
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())

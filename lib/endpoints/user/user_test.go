@@ -13,6 +13,7 @@ import (
 
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
+	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
 )
 
@@ -50,7 +51,7 @@ func TestPost(t *testing.T) {
 	}
 
 	r := httptest.NewRequest("POST", "/users", bytes.NewReader(b))
-	Post(w, r)
+	router.HandleMethod(Post, w, r)
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusUnauthorized)
@@ -69,7 +70,7 @@ func TestPost(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("POST", "/users", bytes.NewReader(b))
-	Post(w, r)
+	router.HandleMethod(Post, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
@@ -91,7 +92,7 @@ func TestPost(t *testing.T) {
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("POST", "/users", bytes.NewReader(b))
 
-	Post(w, r)
+	router.HandleMethod(Post, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
@@ -134,7 +135,7 @@ func TestPost(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("POST", "/userstubs", bytes.NewReader(userStubs))
-	userstubendpoint.Post(w, r)
+	router.HandleMethod(userstubendpoint.Post, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
@@ -142,7 +143,7 @@ func TestPost(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("POST", "/users", bytes.NewReader(b))
-	Post(w, r)
+	router.HandleMethod(Post, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
@@ -188,7 +189,7 @@ func TestGet(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s", os.Getenv("TESTUSER_FAILID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
@@ -202,7 +203,7 @@ func TestGet(t *testing.T) {
 func testHasUsers(t *testing.T, r *http.Request, num int, expectedUsers []string) {
 	t.Helper()
 	w := httptest.NewRecorder()
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
@@ -237,7 +238,7 @@ func createUser(t *testing.T, authorization string) {
 		t.Error(err)
 	}
 
-	Post(w, r)
+	router.HandleMethod(Post, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())

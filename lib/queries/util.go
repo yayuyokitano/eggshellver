@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v4"
+	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/services"
 )
 
@@ -52,7 +53,7 @@ func RollbackTransaction(tx pgx.Tx) {
 	}
 	err := tx.Rollback(ctx)
 	if err != nil {
-		services.LogError(err)
+		logging.LogError(err)
 	}
 }
 

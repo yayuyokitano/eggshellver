@@ -131,14 +131,14 @@ func TestGet(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/follows", nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusBadRequest, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
@@ -248,7 +248,7 @@ func TestPut(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	var follows queries.StructuredFollows
 	err = json.Unmarshal(w.Body.Bytes(), &follows)
 	if err != nil {
@@ -266,7 +266,7 @@ func TestPut(t *testing.T) {
 func testHasFollowersFollowees(t *testing.T, r *http.Request, num int, total int64, followerIDs []string, followeeIDs []string) {
 	t.Helper()
 	w := httptest.NewRecorder()
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())
@@ -304,7 +304,7 @@ func initUserStubs(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "/userstubs", bytes.NewReader(b))
-	userstubendpoint.Post(w, r)
+	router.HandleMethod(userstubendpoint.Post, w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
 	}

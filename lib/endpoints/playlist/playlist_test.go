@@ -134,14 +134,14 @@ func TestGet(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/playlists", nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Status code is %d, want %d. Body %s", w.Code, http.StatusBadRequest, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}
@@ -317,7 +317,7 @@ func TestPut(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 
 	var playlistResults queries.StructuredPlaylists
 	err = json.Unmarshal(w.Body.Bytes(), &playlistResults)
@@ -336,7 +336,7 @@ func TestPut(t *testing.T) {
 func testHasPlaylists(t *testing.T, r *http.Request, num int, total int64, expectedPlaylists []queries.PartialPlaylist) {
 	t.Helper()
 	w := httptest.NewRecorder()
-	Get(w, r)
+	router.HandleMethod(Get, w, r)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d, body %s", w.Code, http.StatusOK, w.Body.String())

@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-func CommitMutating(t *testing.T, r *http.Request, execute func(http.ResponseWriter, *http.Request), token string, affectedRows int64) {
+func CommitMutating(t *testing.T, r *http.Request, execute HTTPImplementer, token string, affectedRows int64) {
 	t.Helper()
 	w := httptest.NewRecorder()
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	execute(w, r)
+	HandleMethod(execute, w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("Status code is %d, want %d", w.Code, http.StatusOK)
 	}

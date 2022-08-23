@@ -3,9 +3,12 @@ package followendpoint
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
+	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
 	"github.com/yayuyokitano/eggshellver/lib/router"
 )
@@ -19,68 +22,67 @@ type LikedTracks struct {
 	Count  int            `json:"totalCount"`
 }
 
-func Post(w http.ResponseWriter, r *http.Request) {
+func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var followedUsers []string
-	eggsID, err := router.AuthenticatePostRequest(w, r, &followedUsers)
-	if err != nil {
-		return
+	eggsID, se := router.AuthenticatePostRequest(w, r, b, &followedUsers)
+	if se != nil {
+		return se
 	}
 
 	n, err := queries.SubmitFollows(context.Background(), eggsID, followedUsers)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return logging.SE(http.StatusInternalServerError, err)
 	}
-	w.Write([]byte(fmt.Sprintf("%d", n)))
+	fmt.Fprint(w, n)
+	return nil
 }
 
-func Get(w http.ResponseWriter, r *http.Request) {
+func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	query := r.URL.Query()
 	followerIDs := queries.GetArray(query, "followerIDs")
 	followeeIDs := queries.GetArray(query, "followeeIDs")
 	paginator := queries.InitializePaginator(query)
 	if len(followerIDs) == 0 && len(followeeIDs) == 0 {
-		http.Error(w, "followerIDs and/or followeeIDs is required", http.StatusBadRequest)
+		return logging.SE(http.StatusBadRequest, errors.New("followerIDs and/or followeeIDs is required"))
 	}
 	follows, err := queries.GetFollows(context.Background(), followerIDs, followeeIDs, paginator)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return logging.SE(http.StatusInternalServerError, err)
 	}
 	b, err := json.Marshal(follows)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return logging.SE(http.StatusInternalServerError, err)
 	}
 	w.Write(b)
+	return nil
 }
 
-func Delete(w http.ResponseWriter, r *http.Request) {
+func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	var unfollowedUsers []string
-	eggsID, err := router.AuthenticateDeleteRequest(w, r, &unfollowedUsers)
-	if err != nil {
-		return
+	eggsID, se := router.AuthenticateDeleteRequest(w, r, &unfollowedUsers)
+	if se != nil {
+		return se
 	}
 
 	n, err := queries.DeleteFollows(context.Background(), eggsID, unfollowedUsers)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return logging.SE(http.StatusInternalServerError, err)
 	}
-	w.Write([]byte(fmt.Sprintf("%d", n)))
+	fmt.Fprint(w, n)
+	return nil
 }
 
-func Put(w http.ResponseWriter, r *http.Request) {
+func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var follows []string
-	eggsID, err := router.AuthenticatePostRequest(w, r, &follows)
-	if err != nil {
-		return
+	eggsID, se := router.AuthenticatePostRequest(w, r, b, &follows)
+	if se != nil {
+		return se
 	}
 
 	n, err := queries.PutFollows(context.Background(), eggsID, follows)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return logging.SE(http.StatusInternalServerError, err)
 	}
-	w.Write([]byte(fmt.Sprintf("%d", n)))
+	fmt.Fprint(w, n)
+	return nil
 }

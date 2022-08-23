@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+
+	"github.com/yayuyokitano/eggshellver/lib/router"
 )
 
 func CreateTestUser(userNum int) (token string, err error) {
@@ -38,7 +40,7 @@ func CreateTestUser(userNum int) (token string, err error) {
 	if err != nil {
 		return
 	}
-	Post(w, r)
+	router.HandleMethod(Post, w, r)
 	if w.Code != http.StatusOK {
 		err = fmt.Errorf("status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
 		return
