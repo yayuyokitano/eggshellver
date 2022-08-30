@@ -81,7 +81,7 @@ func TestPost(t *testing.T) {
 		t.Errorf("Token is empty")
 	}
 
-	eggsID, err := queries.GetEggsIDByToken(context.Background(), token)
+	eggsID, err := queries.GetEggsIDByToken(context.Background(), token[1:len(token)-1])
 	if err != nil {
 		t.Error(err)
 	}
@@ -107,7 +107,7 @@ func TestPost(t *testing.T) {
 		t.Errorf("Token is empty")
 	}
 
-	eggsID, err = queries.GetEggsIDByToken(context.Background(), token)
+	eggsID, err = queries.GetEggsIDByToken(context.Background(), token[1:len(token)-1])
 	if err != nil {
 		t.Error(err)
 	}
@@ -154,7 +154,7 @@ func TestPost(t *testing.T) {
 		t.Errorf("Token is empty")
 	}
 
-	eggsID, err = queries.GetEggsIDByToken(context.Background(), token)
+	eggsID, err = queries.GetEggsIDByToken(context.Background(), token[1:len(token)-1])
 	if err != nil {
 		t.Error(err)
 	}

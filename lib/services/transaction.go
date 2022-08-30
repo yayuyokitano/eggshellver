@@ -20,3 +20,8 @@ func RollbackTransaction() (err error) {
 	err = Tx.Rollback(context.Background())
 	return
 }
+
+func CommitTransaction() (err error) {
+	err = Tx.Commit(context.Background())
+	return
+}

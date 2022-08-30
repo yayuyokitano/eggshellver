@@ -118,7 +118,7 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 
-	fmt.Fprint(w, token)
+	fmt.Fprint(w, `"`+token+`"`)
 	return nil
 }
 

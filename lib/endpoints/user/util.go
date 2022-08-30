@@ -45,7 +45,8 @@ func CreateTestUser(userNum int) (token string, err error) {
 		err = fmt.Errorf("status code is %d, want %d. Body %s", w.Code, http.StatusOK, w.Body.String())
 		return
 	}
-	token = w.Body.String()
+	str := w.Body.String()
+	token = str[1 : len(str)-1]
 	if token == "" {
 		err = fmt.Errorf("token is empty")
 		return

@@ -61,6 +61,30 @@ var testUserStubs = []queries.UserStub{
 	},
 }
 
+func TestInit(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
+	if err != nil {
+		t.Error(err)
+	}
+	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID2"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = services.CommitTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestUniquePost(t *testing.T) {
 	services.Start()
 	defer services.Stop()
