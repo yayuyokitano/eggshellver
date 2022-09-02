@@ -220,27 +220,6 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 	return
 }
 
-func DeleteFollows(ctx context.Context, followerID string, followeeIDs []string) (n int64, err error) {
-	tx, err := fetchTransaction()
-	if err != nil {
-		RollbackTransaction(tx)
-		return
-	}
-	cmd, err := tx.Exec(
-		ctx,
-		"DELETE FROM user_follows WHERE follower_id = $1 AND followee_id = ANY($2)",
-		followerID,
-		followeeIDs,
-	)
-	if err != nil {
-		RollbackTransaction(tx)
-		return
-	}
-	n = cmd.RowsAffected()
-	err = commitTransaction(tx)
-	return
-}
-
 func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	follows := make([][]interface{}, 0)
@@ -291,7 +270,7 @@ func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n
 		return
 	}
 
-	cmd, err := tx.Exec(ctx, "DELETE FROM user_follows WHERE follower_id = $1 AND followee_id != ALL($2)", followerID, followeeIDs)
+	cmd, err := tx.Exec(ctx, "DELETE FROM user_follows t1 USING users t2 WHERE t1.follower_id = $1 AND t1.followee_id != ALL($2) AND t1.followee_id = t2.eggs_id AND t2.is_artist", followerID, followeeIDs)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
@@ -299,5 +278,54 @@ func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n
 
 	n -= cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_follows")
+	return
+}
+
+func ToggleFollow(ctx context.Context, followerID string, followeeID string) (isFollowing bool, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+
+	rows, err := tx.Query(
+		ctx,
+		"SELECT 1 FROM user_follows WHERE follower_id = $1 AND followee_id = $2",
+		followerID,
+		followeeID,
+	)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	if rows.Next() {
+		rows.Close()
+		_, err = tx.Exec(
+			ctx,
+			"DELETE FROM user_follows WHERE follower_id = $1 AND followee_id = $2",
+			followerID,
+			followeeID,
+		)
+		if err != nil {
+			RollbackTransaction(tx)
+			return
+		}
+		isFollowing = false
+		err = commitTransaction(tx)
+		return
+	}
+	rows.Close()
+	_, err = tx.Exec(
+		ctx,
+		"INSERT INTO user_follows (follower_id, followee_id) VALUES ($1, $2)",
+		followerID,
+		followeeID,
+	)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	isFollowing = true
+	err = commitTransaction(tx)
 	return
 }

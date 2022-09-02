@@ -57,21 +57,6 @@ func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	return nil
 }
 
-func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
-	var unfollowedUsers []string
-	eggsID, se := router.AuthenticateDeleteRequest(w, r, &unfollowedUsers)
-	if se != nil {
-		return se
-	}
-
-	n, err := queries.DeleteFollows(context.Background(), eggsID, unfollowedUsers)
-	if err != nil {
-		return logging.SE(http.StatusInternalServerError, err)
-	}
-	fmt.Fprint(w, n)
-	return nil
-}
-
 func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var follows []string
 	eggsID, se := router.AuthenticatePostRequest(w, r, b, &follows)
@@ -84,5 +69,20 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 	fmt.Fprint(w, n)
+	return nil
+}
+
+func ToggleFollow(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
+	var follow string
+	eggsID, se := router.AuthenticateIndividualPostRequest(w, r, b, &follow)
+	if se != nil {
+		return se
+	}
+
+	isFollowing, err := queries.ToggleFollow(context.Background(), eggsID, follow)
+	if err != nil {
+		return logging.SE(http.StatusInternalServerError, err)
+	}
+	fmt.Fprint(w, isFollowing)
 	return nil
 }

@@ -3,8 +3,10 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
@@ -17,6 +19,24 @@ func AuthenticatePostRequest[V any](w io.Writer, r *http.Request, b []byte, v *V
 		return
 	}
 	eggsID, err = authenticateUser(r.Header.Get("Authorization"))
+	if err != nil {
+		statusErr = logging.SE(http.StatusUnauthorized, err)
+	}
+	return
+}
+
+func AuthenticateIndividualPostRequest(w io.Writer, r *http.Request, b []byte, v *string) (eggsID string, statusErr *logging.StatusError) {
+	pathSplit := strings.Split(r.URL.Path, "/")
+	if len(pathSplit) < 3 {
+		statusErr = logging.SE(http.StatusBadRequest, errors.New("invalid path"))
+		return
+	}
+	*v = pathSplit[2]
+	if *v == "" {
+		statusErr = logging.SE(http.StatusBadRequest, errors.New("invalid path"))
+		return
+	}
+	eggsID, err := authenticateUser(r.Header.Get("Authorization"))
 	if err != nil {
 		statusErr = logging.SE(http.StatusUnauthorized, err)
 	}

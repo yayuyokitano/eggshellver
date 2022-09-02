@@ -204,43 +204,6 @@ func TestGet(t *testing.T) {
 
 }
 
-func TestDelete(t *testing.T) {
-	services.Start()
-	defer services.Stop()
-
-	err := services.StartTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer services.RollbackTransaction()
-
-	token, err := userendpoint.CreateTestUser(1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	initUserStubs(t)
-
-	r := httptest.NewRequest("POST", "/follows", strings.NewReader(`["1","2","3","4","5"]`))
-	router.CommitMutating(t, r, Post, token, 5)
-
-	r = httptest.NewRequest("DELETE", "/follows?target=1", nil)
-	router.CommitMutating(t, r, Delete, token, 1)
-
-	r = httptest.NewRequest("DELETE", "/follows?target=1", nil)
-	router.CommitMutating(t, r, Delete, token, 0)
-
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasFollowersFollowees(t, r, 4, 4, []string{os.Getenv("TESTUSER_ID")}, []string{"2", "3", "4", "5"})
-
-	r = httptest.NewRequest("DELETE", "/follows?target=1,2,3,4,5", nil)
-	router.CommitMutating(t, r, Delete, token, 4)
-
-	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasFollowersFollowees(t, r, 0, 0, []string{}, []string{})
-
-}
-
 func TestPut(t *testing.T) {
 	services.Start()
 	defer services.Stop()
@@ -264,7 +227,7 @@ func TestPut(t *testing.T) {
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasFollowersFollowees(t, r, 3, 3, []string{os.Getenv("TESTUSER_ID")}, []string{"1", "2", "3"})
 
-	r = httptest.NewRequest("PUT", "/follows", strings.NewReader(`["2","3","4","5"]`))
+	r = httptest.NewRequest("PUT", "/follows", strings.NewReader(`["3","4","5"]`))
 	router.CommitMutating(t, r, Put, token, 4)
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
@@ -285,6 +248,53 @@ func TestPut(t *testing.T) {
 	if follows.Follows[2].Followee.EggsID != "2" {
 		t.Errorf("Expected followee to be 2, got %s", follows.Follows[2].Followee.EggsID)
 	}
+}
+
+func TestToggle(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	initUserStubs(t)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/follow", nil)
+	router.HandleMethod(ToggleFollow, w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code to be %d, got %d", http.StatusBadRequest, w.Code)
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/follow/", nil)
+	router.HandleMethod(ToggleFollow, w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code to be %d, got %d", http.StatusBadRequest, w.Code)
+	}
+
+	r = httptest.NewRequest("POST", fmt.Sprintf("/follow/%s", testUserStubs[0].EggsID), nil)
+	router.CommitToggling(t, r, ToggleFollow, token, true)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 1, 1, []string{os.Getenv("TESTUSER_ID")}, []string{testUserStubs[0].EggsID})
+
+	r = httptest.NewRequest("POST", fmt.Sprintf("/follow/%s", testUserStubs[0].EggsID), nil)
+	router.CommitToggling(t, r, ToggleFollow, token, false)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasFollowersFollowees(t, r, 0, 0, []string{}, []string{})
+
 }
 
 func testHasFollowersFollowees(t *testing.T, r *http.Request, num int, total int64, followerIDs []string, followeeIDs []string) {
