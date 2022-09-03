@@ -53,21 +53,6 @@ func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	return nil
 }
 
-func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
-	var deletedLikes []string
-	eggsID, se := router.AuthenticateDeleteRequest(w, r, &deletedLikes)
-	if se != nil {
-		return se
-	}
-
-	n, err := queries.DeleteLikes(context.Background(), eggsID, deletedLikes)
-	if err != nil {
-		return logging.SE(http.StatusInternalServerError, err)
-	}
-	fmt.Fprint(w, n)
-	return nil
-}
-
 func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var likes queries.LikeTargetsFixed
 	eggsID, se := router.AuthenticatePostRequest(w, r, b, &likes)
@@ -84,5 +69,29 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 	fmt.Fprint(w, n)
+	return nil
+}
+
+func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
+	var targetID string
+	var targetType string
+	eggsID, se := router.AuthenticateIndividualPostRequest(w, r, b, &targetType, &targetID)
+	if se != nil {
+		return se
+	}
+
+	target := queries.LikeTarget{
+		ID:   targetID,
+		Type: targetType,
+	}
+	if !target.IsValid() {
+		return logging.SE(http.StatusBadRequest, errors.New("invalid target"))
+	}
+
+	isLiking, err := queries.ToggleLike(context.Background(), eggsID, target)
+	if err != nil {
+		return logging.SE(http.StatusInternalServerError, err)
+	}
+	fmt.Fprint(w, isLiking)
 	return nil
 }

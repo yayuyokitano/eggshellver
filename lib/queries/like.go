@@ -110,9 +110,16 @@ func (arr LikeTargetsFixed) IDs() []string {
 	return ids
 }
 
+func (a LikeTarget) IsValid() bool {
+	if a.ID == "" || a.Type != "track" && a.Type != "playlist" {
+		return false
+	}
+	return true
+}
+
 func (arr LikeTargets) IsValid() bool {
 	for _, a := range arr {
-		if a.ID == "" || a.Type != "track" && a.Type != "playlist" {
+		if !a.IsValid() {
 			return false
 		}
 	}
@@ -233,27 +240,6 @@ func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int
 	return
 }
 
-func DeleteLikes(ctx context.Context, eggsID string, targetIDs []string) (n int64, err error) {
-	tx, err := fetchTransaction()
-	if err != nil {
-		RollbackTransaction(tx)
-		return
-	}
-	cmd, err := tx.Exec(
-		ctx,
-		"DELETE FROM user_likes WHERE eggs_id = $1 AND target_id = ANY($2)",
-		eggsID,
-		targetIDs,
-	)
-	if err != nil {
-		RollbackTransaction(tx)
-		return
-	}
-	n = cmd.RowsAffected()
-	err = commitTransaction(tx)
-	return
-}
-
 func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	likes := make([][]interface{}, 0)
@@ -313,5 +299,57 @@ func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n i
 
 	n -= cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_likes")
+	return
+}
+
+func ToggleLike(ctx context.Context, eggsID string, target LikeTarget) (isFollowing bool, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+
+	rows, err := tx.Query(
+		ctx,
+		"SELECT 1 FROM user_likes WHERE eggs_id = $1 AND target_id = $2 AND target_type = $3",
+		eggsID,
+		target.ID,
+		target.Type,
+	)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	if rows.Next() {
+		rows.Close()
+		_, err = tx.Exec(
+			ctx,
+			"DELETE FROM user_likes WHERE eggs_id = $1 AND target_id = $2 AND target_type = $3",
+			eggsID,
+			target.ID,
+			target.Type,
+		)
+		if err != nil {
+			RollbackTransaction(tx)
+			return
+		}
+		isFollowing = false
+		err = commitTransaction(tx)
+		return
+	}
+	rows.Close()
+	_, err = tx.Exec(
+		ctx,
+		"INSERT INTO user_likes (eggs_id, target_id, target_type) VALUES ($1, $2, $3)",
+		eggsID,
+		target.ID,
+		target.Type,
+	)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	isFollowing = true
+	err = commitTransaction(tx)
 	return
 }

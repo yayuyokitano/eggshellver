@@ -46,7 +46,7 @@ func startServer() {
 		DELETE: router.ReturnMethodNotAllowed,
 	})
 	router.Handle("/follow/", router.Methods{
-		POST:   followendpoint.ToggleFollow,
+		POST:   followendpoint.Toggle,
 		GET:    router.ReturnMethodNotAllowed,
 		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
@@ -55,7 +55,13 @@ func startServer() {
 		POST:   likeendpoint.Post,
 		GET:    likeendpoint.Get,
 		PUT:    likeendpoint.Put,
-		DELETE: likeendpoint.Delete,
+		DELETE: router.ReturnMethodNotAllowed,
+	})
+	router.Handle("/like/", router.Methods{
+		POST:   likeendpoint.Toggle,
+		GET:    router.ReturnMethodNotAllowed,
+		PUT:    router.ReturnMethodNotAllowed,
+		DELETE: router.ReturnMethodNotAllowed,
 	})
 	router.Handle("/playlists", router.Methods{
 		POST:   playlistendpoint.Post,

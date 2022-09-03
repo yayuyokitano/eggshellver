@@ -25,16 +25,18 @@ func AuthenticatePostRequest[V any](w io.Writer, r *http.Request, b []byte, v *V
 	return
 }
 
-func AuthenticateIndividualPostRequest(w io.Writer, r *http.Request, b []byte, v *string) (eggsID string, statusErr *logging.StatusError) {
+func AuthenticateIndividualPostRequest(w io.Writer, r *http.Request, b []byte, v ...*string) (eggsID string, statusErr *logging.StatusError) {
 	pathSplit := strings.Split(r.URL.Path, "/")
-	if len(pathSplit) < 3 {
+	if len(pathSplit) < len(v)+2 {
 		statusErr = logging.SE(http.StatusBadRequest, errors.New("invalid path"))
 		return
 	}
-	*v = pathSplit[2]
-	if *v == "" {
-		statusErr = logging.SE(http.StatusBadRequest, errors.New("invalid path"))
-		return
+	for i := 0; i < len(v); i++ {
+		*v[i] = pathSplit[i+2]
+		if *v[i] == "" {
+			statusErr = logging.SE(http.StatusBadRequest, errors.New("invalid path"))
+			return
+		}
 	}
 	eggsID, err := authenticateUser(r.Header.Get("Authorization"))
 	if err != nil {

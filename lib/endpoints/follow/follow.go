@@ -72,7 +72,7 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	return nil
 }
 
-func ToggleFollow(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
+func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var follow string
 	eggsID, se := router.AuthenticateIndividualPostRequest(w, r, b, &follow)
 	if se != nil {

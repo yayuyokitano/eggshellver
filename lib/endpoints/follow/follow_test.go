@@ -269,7 +269,7 @@ func TestToggle(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "/follow", nil)
-	router.HandleMethod(ToggleFollow, w, r)
+	router.HandleMethod(Toggle, w, r)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status code to be %d, got %d", http.StatusBadRequest, w.Code)
@@ -277,20 +277,20 @@ func TestToggle(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest("POST", "/follow/", nil)
-	router.HandleMethod(ToggleFollow, w, r)
+	router.HandleMethod(Toggle, w, r)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status code to be %d, got %d", http.StatusBadRequest, w.Code)
 	}
 
 	r = httptest.NewRequest("POST", fmt.Sprintf("/follow/%s", testUserStubs[0].EggsID), nil)
-	router.CommitToggling(t, r, ToggleFollow, token, true)
+	router.CommitToggling(t, r, Toggle, token, true)
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasFollowersFollowees(t, r, 1, 1, []string{os.Getenv("TESTUSER_ID")}, []string{testUserStubs[0].EggsID})
 
 	r = httptest.NewRequest("POST", fmt.Sprintf("/follow/%s", testUserStubs[0].EggsID), nil)
-	router.CommitToggling(t, r, ToggleFollow, token, false)
+	router.CommitToggling(t, r, Toggle, token, false)
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/follows?followerIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasFollowersFollowees(t, r, 0, 0, []string{}, []string{})

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
@@ -232,68 +231,6 @@ func TestGet(t *testing.T) {
 
 }
 
-func TestDelete(t *testing.T) {
-	services.Start()
-	defer services.Stop()
-
-	err := services.StartTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer services.RollbackTransaction()
-
-	token, err := userendpoint.CreateTestUser(1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	likeTargets := make(queries.LikeTargets, 0)
-	for i := 0; i < 5; i++ {
-		likeTargets = append(likeTargets, queries.LikeTarget{
-			ID:   createMusicId(),
-			Type: "track",
-		})
-	}
-
-	b, err := json.Marshal(likeTargets)
-	if err != nil {
-		t.Error(err)
-	}
-
-	r := httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
-	router.CommitMutating(t, r, Post, token, int64(len(likeTargets)))
-
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasLikes(t, r, 5, 5, []queries.PartialLike{})
-
-	r = httptest.NewRequest("DELETE", fmt.Sprintf("/likes?target=%s", likeTargets[0].ID), nil)
-	router.CommitMutating(t, r, Delete, token, 1)
-
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasLikes(t, r, 4, 4, []queries.PartialLike{{
-		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[1].ID,
-	}, {
-		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[2].ID,
-	}, {
-		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[3].ID,
-	}, {
-		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[4].ID,
-	}})
-
-	s := strings.Join(likeTargets.IDs(), ",")
-
-	r = httptest.NewRequest("DELETE", fmt.Sprintf("/likes?target=%s", s), nil)
-	router.CommitMutating(t, r, Delete, token, 4)
-
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasLikes(t, r, 0, 0, []queries.PartialLike{})
-
-}
-
 func TestPut(t *testing.T) {
 	services.Start()
 	defer services.Stop()
@@ -378,6 +315,56 @@ func TestPut(t *testing.T) {
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikedIDs(t, r, 5, 5, os.Getenv("TESTUSER_ID"), append(likeTargets.IDs()[1:], playlistTarget.ID))
+}
+
+func TestToggle(t *testing.T) {
+	services.Start()
+	defer services.Stop()
+
+	err := services.StartTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer services.RollbackTransaction()
+
+	token, err := userendpoint.CreateTestUser(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	likeTarget := createMusicId()
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/like", nil)
+	router.HandleMethod(Toggle, w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code to be %d, got %d", http.StatusBadRequest, w.Code)
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("POST", "/like/", nil)
+	router.HandleMethod(Toggle, w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code to be %d, got %d", http.StatusBadRequest, w.Code)
+	}
+
+	r = httptest.NewRequest("POST", fmt.Sprintf("/like/track/%s", likeTarget), nil)
+	router.CommitToggling(t, r, Toggle, token, true)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
+		TargetID: likeTarget,
+		EggsID:   os.Getenv("TESTUSER_ID"),
+	}})
+
+	r = httptest.NewRequest("POST", fmt.Sprintf("/like/track/%s", likeTarget), nil)
+	router.CommitToggling(t, r, Toggle, token, false)
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
+	testHasLikes(t, r, 0, 0, []queries.PartialLike{})
+
 }
 
 func testHasLikedIDs(t *testing.T, r *http.Request, num int, total int64, eggsID string, expectedLikedIDs []string) {
