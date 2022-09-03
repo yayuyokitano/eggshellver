@@ -75,7 +75,7 @@ func (u User) IsArtist() bool {
 	return u.Data.ArtistID != 0
 }
 
-func PostUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
+func PostUserStubs(ctx context.Context, users []UserStub) (inserted int64, updated int64, err error) {
 	userStubs := make([][]interface{}, 0)
 	for _, user := range users {
 		userStubs = append(userStubs, []interface{}{
@@ -112,12 +112,18 @@ func PostUserStubs(ctx context.Context, users []UserStub) (n int64, err error) {
 		RollbackTransaction(tx)
 		return
 	}
-	cmd, err := tx.Exec(ctx, "INSERT INTO users SELECT * FROM _temp_upsert_users ON CONFLICT (eggs_id) DO UPDATE SET display_name = EXCLUDED.display_name, is_artist = EXCLUDED.is_artist, image_data_path = EXCLUDED.image_data_path, prefecture_code = EXCLUDED.prefecture_code, profile_text = EXCLUDED.profile_text")
+
+	row := tx.QueryRow(ctx, `
+		WITH t AS (
+			INSERT INTO users SELECT * FROM _temp_upsert_users ON CONFLICT (eggs_id) DO UPDATE SET display_name = EXCLUDED.display_name, is_artist = EXCLUDED.is_artist, image_data_path = EXCLUDED.image_data_path, prefecture_code = EXCLUDED.prefecture_code, profile_text = EXCLUDED.profile_text RETURNING xmax
+		)
+		SELECT SUM(CASE WHEN xmax = 0 THEN 1 ELSE 0 END) AS inserted, SUM(CASE WHEN xmax != 0 THEN 1 ELSE 0 END) AS updated FROM t
+	`)
+	err = row.Scan(&inserted, &updated)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
-	n = cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_users")
 	return
 }
@@ -243,6 +249,42 @@ func GetUserCredentials(ctx context.Context, user User) (eggsID string, token st
 		"SELECT eggs_id, token FROM users WHERE eggs_id = $1",
 		user.Data.EggsID,
 	).Scan(&eggsID, &token)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = commitTransaction(tx)
+	return
+}
+
+func GetCachedUserCount(ctx context.Context) (n int64, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM users",
+	).Scan(&n)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = commitTransaction(tx)
+	return
+}
+
+func GetAuthenticatedUserCount(ctx context.Context) (n int64, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM users WHERE token != ''",
+	).Scan(&n)
 	if err != nil {
 		RollbackTransaction(tx)
 		return

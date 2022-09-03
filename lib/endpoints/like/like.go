@@ -14,20 +14,21 @@ import (
 )
 
 func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
-	var likedTracks queries.LikeTargets
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &likedTracks)
+	var likes queries.LikeTargetsFixed
+	eggsID, se := router.AuthenticatePostRequest(w, r, b, &likes)
 	if se != nil {
 		return se
 	}
 
-	if !likedTracks.IsValid() {
+	if !likes.IsValid() {
 		return logging.SE(http.StatusBadRequest, errors.New("invalid likedTracks"))
 	}
 
-	n, err := queries.LikeObjects(context.Background(), eggsID, likedTracks)
+	n, err := queries.LikeObjects(context.Background(), eggsID, likes)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
+	logging.AddLikes(int(n), likes.Type)
 	fmt.Fprint(w, n)
 	return nil
 }
@@ -64,11 +65,12 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return logging.SE(http.StatusBadRequest, errors.New("invalid likes"))
 	}
 
-	n, err := queries.PutLikes(context.Background(), eggsID, likes)
+	delta, total, err := queries.PutLikes(context.Background(), eggsID, likes)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
-	fmt.Fprint(w, n)
+	logging.AddLikes(int(delta), likes.Type)
+	fmt.Fprint(w, total)
 	return nil
 }
 
@@ -91,6 +93,11 @@ func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	isLiking, err := queries.ToggleLike(context.Background(), eggsID, target)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
+	}
+	if isLiking {
+		logging.AddLikes(1, target.Type)
+	} else {
+		logging.AddLikes(-1, target.Type)
 	}
 	fmt.Fprint(w, isLiking)
 	return nil

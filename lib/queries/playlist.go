@@ -148,7 +148,7 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 	return
 }
 
-func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []PlaylistInput) (n int64, err error) {
+func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []PlaylistInput) (inserted int64, updated int64, err error) {
 	playlists := make([][]interface{}, 0)
 	for _, playlist := range playlistInputs {
 		playlists = append(playlists, []interface{}{eggsID, playlist.PlaylistID, playlist.LastModified})
@@ -178,12 +178,17 @@ func PostPlaylists(ctx context.Context, eggsID string, playlistInputs []Playlist
 		RollbackTransaction(tx)
 		return
 	}
-	cmd, err := tx.Exec(ctx, "INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified")
+	row := tx.QueryRow(ctx, `
+		WITH t AS (
+			INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified RETURNING xmax
+		)
+		SELECT SUM(CASE WHEN xmax = 0 THEN 1 ELSE 0 END) AS inserted, SUM(CASE WHEN xmax != 0 THEN 1 ELSE 0 END) AS updated FROM t
+	`)
+	err = row.Scan(&inserted, &updated)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
-	n = cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_playlists")
 	return
 }
@@ -209,7 +214,7 @@ func DeletePlaylists(ctx context.Context, eggsID string, playlistIDs []string) (
 	return
 }
 
-func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInputs) (n int64, err error) {
+func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInputs) (delta int64, total int64, err error) {
 
 	playlists := make([][]interface{}, 0)
 	for _, playlist := range playlistInputs {
@@ -243,21 +248,20 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 		return
 	}
 
-	_, err = tx.Exec(ctx, "INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified")
+	var inserted int64
+	var updated int64
+	row := tx.QueryRow(ctx, `
+		WITH t AS (
+			INSERT INTO playlists SELECT * FROM _temp_upsert_playlists ON CONFLICT (playlist_id) DO UPDATE SET last_modified = EXCLUDED.last_modified RETURNING xmax
+		)
+		SELECT SUM(CASE WHEN xmax = 0 THEN 1 ELSE 0 END) AS inserted, SUM(CASE WHEN xmax != 0 THEN 1 ELSE 0 END) AS updated FROM t
+	`)
+	err = row.Scan(&inserted, &updated)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
-
-	err = tx.QueryRow(
-		ctx,
-		"SELECT COUNT(*) FROM playlists WHERE eggs_id = $1",
-		eggsID,
-	).Scan(&n)
-	if err != nil {
-		RollbackTransaction(tx)
-		return
-	}
+	total = inserted + updated
 
 	playlistIDs := make([]string, 0)
 	for _, playlist := range playlistInputs {
@@ -270,7 +274,25 @@ func PutPlaylists(ctx context.Context, eggsID string, playlistInputs PlaylistInp
 		return
 	}
 
-	n -= cmd.RowsAffected()
+	delta = inserted - cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_playlists")
+	return
+}
+
+func GetPlaylistCount(ctx context.Context) (n int64, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM playlists",
+	).Scan(&n)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = commitTransaction(tx)
 	return
 }

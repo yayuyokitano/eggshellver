@@ -17,10 +17,11 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if err != nil {
 		return logging.SE(http.StatusBadRequest, err)
 	}
-	n, err := queries.PostUserStubs(context.Background(), users)
+	inserted, updated, err := queries.PostUserStubs(context.Background(), users)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
-	fmt.Fprint(w, n)
+	logging.AddCachedUsers(int(inserted))
+	fmt.Fprint(w, inserted+updated)
 	return nil
 }

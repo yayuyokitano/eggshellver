@@ -20,11 +20,12 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return se
 	}
 
-	n, err := queries.PostPlaylists(context.Background(), eggsID, playlists)
+	inserted, updated, err := queries.PostPlaylists(context.Background(), eggsID, playlists)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
-	fmt.Fprint(w, n)
+	logging.AddPlaylists(int(inserted))
+	fmt.Fprint(w, inserted+updated)
 	return nil
 }
 
@@ -59,6 +60,7 @@ func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
+	logging.AddPlaylists(int(-n))
 	fmt.Fprint(w, n)
 	return nil
 }
@@ -70,10 +72,11 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return se
 	}
 
-	n, err := queries.PutPlaylists(context.Background(), eggsID, playlists)
+	delta, total, err := queries.PutPlaylists(context.Background(), eggsID, playlists)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
-	fmt.Fprint(w, n)
+	logging.AddPlaylists(int(delta))
+	fmt.Fprint(w, total)
 	return nil
 }

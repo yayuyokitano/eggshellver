@@ -199,10 +199,10 @@ func GetLikedObjects(ctx context.Context, eggsIDs []string, targetIDs []string, 
 	return
 }
 
-func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int64, err error) {
+func LikeObjects(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	likes := make([][]interface{}, 0)
-	for i, target := range targets {
+	for i, target := range targets.Targets {
 		likes = append(likes, []interface{}{eggsID, target.ID, target.Type, time.UnixMilli(timestamp - int64(i))})
 	}
 	tx, err := fetchTransaction()
@@ -240,7 +240,7 @@ func LikeObjects(ctx context.Context, eggsID string, targets LikeTargets) (n int
 	return
 }
 
-func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n int64, err error) {
+func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (delta int64, total int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	likes := make([][]interface{}, 0)
 	for i, target := range targets.Targets {
@@ -274,30 +274,33 @@ func PutLikes(ctx context.Context, eggsID string, targets LikeTargetsFixed) (n i
 		return
 	}
 
-	_, err = tx.Exec(ctx, "INSERT INTO user_likes SELECT * FROM _temp_upsert_likes ON CONFLICT DO NOTHING")
+	cmd, err := tx.Exec(ctx, "INSERT INTO user_likes SELECT * FROM _temp_upsert_likes ON CONFLICT DO NOTHING")
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
+
+	delta = cmd.RowsAffected()
 
 	err = tx.QueryRow(
 		ctx,
 		"SELECT COUNT(*) FROM user_likes WHERE eggs_id = $1 AND target_type = $2",
 		eggsID,
 		targets.Type,
-	).Scan(&n)
+	).Scan(&total)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
 
-	cmd, err := tx.Exec(ctx, "DELETE FROM user_likes WHERE eggs_id = $1 AND target_id != ALL($2) AND target_type = $3", eggsID, targets.IDs(), targets.Type)
+	cmd, err = tx.Exec(ctx, "DELETE FROM user_likes WHERE eggs_id = $1 AND target_id != ALL($2) AND target_type = $3", eggsID, targets.IDs(), targets.Type)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
 
-	n -= cmd.RowsAffected()
+	total -= cmd.RowsAffected()
+	delta -= cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_likes")
 	return
 }
@@ -350,6 +353,30 @@ func ToggleLike(ctx context.Context, eggsID string, target LikeTarget) (isFollow
 		return
 	}
 	isFollowing = true
+	err = commitTransaction(tx)
+	return
+}
+
+func GetLikeCount(ctx context.Context, target string) (n int64, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	if target != "track" && target != "playlist" {
+		RollbackTransaction(tx)
+		err = errors.New("invalid target")
+		return
+	}
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM user_likes WHERE target_type = $1",
+		target,
+	).Scan(&n)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
 	err = commitTransaction(tx)
 	return
 }

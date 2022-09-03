@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"net/url"
 	"strings"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/services"
 )
 
@@ -52,9 +52,7 @@ func RollbackTransaction(tx pgx.Tx) {
 		return
 	}
 	err := tx.Rollback(ctx)
-	if err != nil {
-		logging.LogError(err)
-	}
+	log.Println(err)
 }
 
 func GenerateRandomString(s int) (string, error) {

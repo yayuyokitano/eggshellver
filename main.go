@@ -14,6 +14,7 @@ import (
 	playlistendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/playlist"
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
+	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
 )
@@ -81,6 +82,7 @@ func startServer() {
 		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
 	})
+	go logging.ServeLogs()
 	http.ListenAndServe(":10000", nil)
 }
 

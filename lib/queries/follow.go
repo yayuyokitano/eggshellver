@@ -220,7 +220,7 @@ func SubmitFollows(ctx context.Context, followerID string, followeeIDs []string)
 	return
 }
 
-func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n int64, err error) {
+func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (delta int64, total int64, err error) {
 	timestamp := time.Now().UnixMilli()
 	follows := make([][]interface{}, 0)
 	for i, followeeID := range followeeIDs {
@@ -254,29 +254,31 @@ func PutFollows(ctx context.Context, followerID string, followeeIDs []string) (n
 		return
 	}
 
-	_, err = tx.Exec(ctx, "INSERT INTO user_follows SELECT * FROM _temp_upsert_follows ON CONFLICT DO NOTHING")
+	cmd, err := tx.Exec(ctx, "INSERT INTO user_follows SELECT * FROM _temp_upsert_follows ON CONFLICT DO NOTHING")
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
+	delta = cmd.RowsAffected()
 
 	err = tx.QueryRow(
 		ctx,
 		"SELECT COUNT(*) FROM user_follows WHERE follower_id = $1",
 		followerID,
-	).Scan(&n)
+	).Scan(&total)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
 
-	cmd, err := tx.Exec(ctx, "DELETE FROM user_follows t1 USING users t2 WHERE t1.follower_id = $1 AND t1.followee_id != ALL($2) AND t1.followee_id = t2.eggs_id AND t2.is_artist", followerID, followeeIDs)
+	cmd, err = tx.Exec(ctx, "DELETE FROM user_follows t1 USING users t2 WHERE t1.follower_id = $1 AND t1.followee_id != ALL($2) AND t1.followee_id = t2.eggs_id AND t2.is_artist", followerID, followeeIDs)
 	if err != nil {
 		RollbackTransaction(tx)
 		return
 	}
 
-	n -= cmd.RowsAffected()
+	total -= cmd.RowsAffected()
+	delta -= cmd.RowsAffected()
 	err = commitTransaction(tx, "_temp_upsert_follows")
 	return
 }
@@ -326,6 +328,24 @@ func ToggleFollow(ctx context.Context, followerID string, followeeID string) (is
 		return
 	}
 	isFollowing = true
+	err = commitTransaction(tx)
+	return
+}
+
+func GetFollowCount(ctx context.Context) (n int64, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = tx.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM user_follows",
+	).Scan(&n)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
 	err = commitTransaction(tx)
 	return
 }

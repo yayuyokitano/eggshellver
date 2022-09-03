@@ -63,11 +63,13 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	logging.LogFetch(req)
 	resp, err := client.Do(req)
 	if err != nil {
+		logging.LogFetchErrored(req, resp)
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logging.LogFetchErrored(req, resp)
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 
@@ -124,5 +126,6 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 
 func generateToken() (token string, err error) {
 	token, err = queries.GenerateRandomString(64)
+	logging.AddAuthenticatedUsers(1)
 	return
 }

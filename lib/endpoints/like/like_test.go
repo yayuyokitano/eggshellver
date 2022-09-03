@@ -50,10 +50,13 @@ func TestUniquePost(t *testing.T) {
 		t.Error(err)
 	}
 
-	likes := queries.LikeTargets{{
-		ID:   createMusicId(),
+	likes := queries.LikeTargetsFixed{
+		Targets: []queries.LikeTarget{{
+			ID:   createMusicId(),
+			Type: "track",
+		}},
 		Type: "track",
-	}}
+	}
 
 	b, err := json.Marshal(likes)
 	if err != nil {
@@ -63,7 +66,8 @@ func TestUniquePost(t *testing.T) {
 	r := httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token, 1)
 
-	likes[0].Type = "playlist"
+	likes.Targets[0].Type = "playlist"
+	likes.Type = "playlist"
 
 	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token, 0)
@@ -73,27 +77,30 @@ func TestUniquePost(t *testing.T) {
 func TestPost(t *testing.T) {
 	services.Start()
 	defer services.Stop()
-	likes := make(queries.LikeTargets, 0)
+	trackLikes := queries.LikeTargetsFixed{
+		Targets: make(queries.LikeTargets, 0),
+		Type:    "track",
+	}
+	playlistLikes := queries.LikeTargetsFixed{
+		Targets: make(queries.LikeTargets, 0),
+		Type:    "playlist",
+	}
 	bulkSize := 10_000
 	for i := 0; i < bulkSize; i++ {
 		if i%5 == 0 {
-			likes = append(likes, queries.LikeTarget{
+			trackLikes.Targets = append(trackLikes.Targets, queries.LikeTarget{
 				ID:   createMusicId(),
 				Type: "track",
 			})
 		} else {
-			likes = append(likes, queries.LikeTarget{
+			playlistLikes.Targets = append(playlistLikes.Targets, queries.LikeTarget{
 				ID:   createMusicId(),
 				Type: "playlist",
 			})
 		}
 	}
-	b, err := json.Marshal(likes)
-	if err != nil {
-		t.Error(err)
-	}
 
-	err = services.StartTransaction()
+	err := services.StartTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,8 +111,21 @@ func TestPost(t *testing.T) {
 		t.Error(err)
 	}
 
+	b, err := json.Marshal(trackLikes)
+	if err != nil {
+		t.Error(err)
+	}
+
 	r := httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
-	router.CommitMutating(t, r, Post, token, int64(bulkSize))
+	router.CommitMutating(t, r, Post, token, int64(bulkSize/5))
+
+	b, err = json.Marshal(playlistLikes)
+	if err != nil {
+		t.Error(err)
+	}
+
+	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, int64(4*bulkSize/5))
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&limit=15000", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikes(t, r, bulkSize, int64(bulkSize), []queries.PartialLike{})
@@ -119,7 +139,7 @@ func TestPost(t *testing.T) {
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasLikes(t, r, 10, int64(bulkSize), []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likes[1].ID,
+		TargetID: playlistLikes.Targets[0].ID,
 	}})
 
 	err = queries.UNSAFEDeleteUser(context.Background(), os.Getenv("TESTUSER_ID"))
@@ -159,33 +179,45 @@ func TestGet(t *testing.T) {
 		t.Errorf("Body is %s, want %s", w.Body.String(), `{"likes":[],"total":0}`)
 	}
 
-	likeTargets := queries.LikeTargets{
-		{
-			ID:   createMusicId(),
-			Type: "track",
+	trackLikeTarget := queries.LikeTargetsFixed{
+		Targets: queries.LikeTargets{
+			{
+				ID:   createMusicId(),
+				Type: "track",
+			},
 		},
-		{
-			ID:   createMusicId(),
-			Type: "playlist",
+		Type: "track",
+	}
+
+	playlistLikeTarget := queries.LikeTargetsFixed{
+		Targets: queries.LikeTargets{
+			{
+				ID:   createMusicId(),
+				Type: "playlist",
+			},
 		},
+		Type: "playlist",
 	}
 
 	token, err := userendpoint.CreateTestUser(1)
 	if err != nil {
 		t.Error(err)
 	}
-	b, err := json.Marshal(likeTargets)
+	b, err := json.Marshal(playlistLikeTarget)
 	if err != nil {
 		t.Error(err)
 	}
 	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
-	router.CommitMutating(t, r, Post, token, 2)
+	router.CommitMutating(t, r, Post, token, 1)
 
-	token2, err := userendpoint.CreateTestUser(2)
+	b, err = json.Marshal(trackLikeTarget)
 	if err != nil {
 		t.Error(err)
 	}
-	b, err = json.Marshal(likeTargets[:1])
+	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
+	router.CommitMutating(t, r, Post, token, 1)
+
+	token2, err := userendpoint.CreateTestUser(2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -193,37 +225,37 @@ func TestGet(t *testing.T) {
 	r = httptest.NewRequest("POST", "/likes", bytes.NewReader(b))
 	router.CommitMutating(t, r, Post, token2, 1)
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s", likeTargets[0].ID), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s", trackLikeTarget.Targets[0].ID), nil)
 	testHasLikes(t, r, 2, 2, []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[0].ID,
+		TargetID: trackLikeTarget.Targets[0].ID,
 	}, {
 		EggsID:   os.Getenv("TESTUSER_ID2"),
-		TargetID: likeTargets[0].ID,
+		TargetID: trackLikeTarget.Targets[0].ID,
 	}})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s&limit=1", likeTargets[0].ID), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s&limit=1", trackLikeTarget.Targets[0].ID), nil)
 	testHasLikes(t, r, 1, 2, []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID2"),
-		TargetID: likeTargets[0].ID,
+		TargetID: trackLikeTarget.Targets[0].ID,
 	}})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s", likeTargets[1].ID), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?targetIDs=%s", playlistLikeTarget.Targets[0].ID), nil)
 	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[1].ID,
+		TargetID: playlistLikeTarget.Targets[0].ID,
 	}})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetIDs=%s", os.Getenv("TESTUSER_ID"), likeTargets[0].ID), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetIDs=%s", os.Getenv("TESTUSER_ID"), trackLikeTarget.Targets[0].ID), nil)
 	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[0].ID,
+		TargetID: trackLikeTarget.Targets[0].ID,
 	}})
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetType=%s", os.Getenv("TESTUSER_ID"), "track"), nil)
 	testHasLikes(t, r, 1, 1, []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID"),
-		TargetID: likeTargets[0].ID,
+		TargetID: trackLikeTarget.Targets[0].ID,
 	}})
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s&targetType=%s", os.Getenv("TESTUSER_ID2"), "playlist"), nil)

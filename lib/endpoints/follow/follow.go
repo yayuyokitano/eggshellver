@@ -33,6 +33,7 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
+	logging.AddFollows(int(n))
 	fmt.Fprint(w, n)
 	return nil
 }
@@ -64,11 +65,12 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return se
 	}
 
-	n, err := queries.PutFollows(context.Background(), eggsID, follows)
+	delta, total, err := queries.PutFollows(context.Background(), eggsID, follows)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
-	fmt.Fprint(w, n)
+	logging.AddFollows(int(delta))
+	fmt.Fprint(w, total)
 	return nil
 }
 
@@ -82,6 +84,11 @@ func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	isFollowing, err := queries.ToggleFollow(context.Background(), eggsID, follow)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
+	}
+	if isFollowing {
+		logging.AddFollows(1)
+	} else {
+		logging.AddFollows(-1)
 	}
 	fmt.Fprint(w, isFollowing)
 	return nil
