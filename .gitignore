@@ -19,3 +19,7 @@
 
 # DS_STORE
 .DS_Store
+
+# certificate and key
+cert.pem
+key.pem

@@ -83,7 +83,7 @@ func startServer() {
 		DELETE: router.ReturnMethodNotAllowed,
 	})
 	go logging.ServeLogs()
-	http.ListenAndServe(":10000", nil)
+	http.ListenAndServeTLS(":10000", "cert.pem", "key.pem", nil)
 }
 
 func performMigration(firstTime bool) {
