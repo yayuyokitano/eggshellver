@@ -7,9 +7,10 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
-type User struct {
+type UserRaw struct {
 	Data struct {
-		EggsID         string `json:"userName"`
+		UserName       string `json:"userName"`
+		ArtistName     string `json:"artistName"`
 		DisplayName    string `json:"displayName"`
 		ArtistID       int    `json:"artistId"`
 		UserID         int    `json:"userId"`
@@ -19,7 +20,8 @@ type User struct {
 	} `json:"data"`
 }
 
-type UserStub struct {
+type User struct {
+	UserID         int    `json:"userId" db:"user_id"`
 	EggsID         string `json:"userName" db:"eggs_id"`
 	DisplayName    string `json:"displayName" db:"display_name"`
 	IsArtist       bool   `json:"isArtist" db:"is_artist"`
@@ -27,6 +29,54 @@ type UserStub struct {
 	PrefectureCode int    `json:"prefectureCode" db:"prefecture_code"`
 	ProfileText    string `json:"profile" db:"profile_text"`
 }
+
+func (u UserRaw) User() User {
+	if u.Data.UserID != 0 {
+		return User{
+			UserID:         u.Data.UserID,
+			EggsID:         u.Data.UserName,
+			DisplayName:    u.Data.DisplayName,
+			IsArtist:       false,
+			ImageDataPath:  u.Data.ImageDataPath,
+			PrefectureCode: u.Data.PrefectureCode,
+			ProfileText:    u.Data.ProfileText,
+		}
+	}
+	return User{
+		UserID:         u.Data.ArtistID,
+		EggsID:         u.Data.ArtistName,
+		DisplayName:    u.Data.DisplayName,
+		IsArtist:       true,
+		ImageDataPath:  u.Data.ImageDataPath,
+		PrefectureCode: u.Data.PrefectureCode,
+		ProfileText:    u.Data.ProfileText,
+	}
+}
+
+func (u User) IsValid() bool {
+	if u.UserID == 0 || u.EggsID == "" || u.DisplayName == "" {
+		return false
+	}
+	return true
+}
+
+type UserStub struct {
+	UserID         int    `json:"userId" db:"user_id"`
+	EggsID         string `json:"userName" db:"eggs_id"`
+	DisplayName    string `json:"displayName" db:"display_name"`
+	IsArtist       bool   `json:"isArtist" db:"is_artist"`
+	ImageDataPath  string `json:"imageDataPath" db:"image_data_path"`
+	PrefectureCode int    `json:"prefectureCode" db:"prefecture_code"`
+	ProfileText    string `json:"profile" db:"profile_text"`
+}
+
+func (u UserStub) IsValid() bool {
+	if u.EggsID == "" || u.UserID == 0 || u.DisplayName == "" {
+		return false
+	}
+	return true
+}
+
 type UserStubs []UserStub
 
 func (arr UserStubs) Contains(b UserStub) bool {
@@ -71,14 +121,20 @@ func (arr UserStubs) StringSlice() (output []string) {
 	return
 }
 
-func (u User) IsArtist() bool {
-	return u.Data.ArtistID != 0
+func (arr UserStubs) IsValid() bool {
+	for _, user := range arr {
+		if !user.IsValid() {
+			return false
+		}
+	}
+	return true
 }
 
 func PostUserStubs(ctx context.Context, users []UserStub) (inserted int64, updated int64, err error) {
 	userStubs := make([][]interface{}, 0)
 	for _, user := range users {
 		userStubs = append(userStubs, []interface{}{
+			user.UserID,
 			user.EggsID,
 			user.DisplayName,
 			user.IsArtist,
@@ -105,7 +161,7 @@ func PostUserStubs(ctx context.Context, users []UserStub) (inserted int64, updat
 	_, err = tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"_temp_upsert_users"},
-		[]string{"eggs_id", "display_name", "is_artist", "image_data_path", "prefecture_code", "profile_text"},
+		[]string{"user_id", "eggs_id", "display_name", "is_artist", "image_data_path", "prefecture_code", "profile_text"},
 		pgx.CopyFromRows(userStubs),
 	)
 	if err != nil {
@@ -134,15 +190,17 @@ func InsertUser(ctx context.Context, user User, token string) (err error) {
 		RollbackTransaction(tx)
 		return
 	}
+
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO users (eggs_id, display_name, is_artist, image_data_path, prefecture_code, profile_text, token) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-		user.Data.EggsID,
-		user.Data.DisplayName,
-		user.IsArtist(),
-		user.Data.ImageDataPath,
-		user.Data.PrefectureCode,
-		user.Data.ProfileText,
+		"INSERT INTO users (user_id, eggs_id, display_name, is_artist, image_data_path, prefecture_code, profile_text, token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+		user.UserID,
+		user.EggsID,
+		user.DisplayName,
+		user.IsArtist,
+		user.ImageDataPath,
+		user.PrefectureCode,
+		user.ProfileText,
 		token,
 	)
 	if err != nil {
@@ -163,7 +221,7 @@ func UpdateUserToken(ctx context.Context, user User, token string) (err error) {
 		ctx,
 		"UPDATE users SET token = $1 WHERE eggs_id = $2",
 		token,
-		user.Data.EggsID,
+		user.EggsID,
 	)
 	if err != nil {
 		RollbackTransaction(tx)
@@ -182,12 +240,12 @@ func UpdateUserDetails(ctx context.Context, user User) (err error) {
 	_, err = tx.Exec(
 		ctx,
 		"UPDATE users SET display_name = $1, is_artist = $2, image_data_path = $3, prefecture_code = $4, profile_text = $5 WHERE eggs_id = $6",
-		user.Data.DisplayName,
-		user.IsArtist(),
-		user.Data.ImageDataPath,
-		user.Data.PrefectureCode,
-		user.Data.ProfileText,
-		user.Data.EggsID,
+		user.DisplayName,
+		user.IsArtist,
+		user.ImageDataPath,
+		user.PrefectureCode,
+		user.ProfileText,
+		user.EggsID,
 	)
 	if err != nil {
 		RollbackTransaction(tx)
@@ -197,7 +255,7 @@ func UpdateUserDetails(ctx context.Context, user User) (err error) {
 	return
 }
 
-func GetUsers(ctx context.Context, users []string) (output []UserStub, err error) {
+func GetUsers(ctx context.Context, eggsids []string, userids []int) (output []UserStub, err error) {
 	output = make([]UserStub, 0)
 	tx, err := fetchTransaction()
 	if err != nil {
@@ -208,8 +266,9 @@ func GetUsers(ctx context.Context, users []string) (output []UserStub, err error
 		ctx,
 		tx,
 		&output,
-		"SELECT eggs_id, display_name, is_artist, image_data_path, prefecture_code, profile_text FROM users WHERE eggs_id = ANY($1)",
-		users,
+		"SELECT user_id, eggs_id, display_name, is_artist, image_data_path, prefecture_code, profile_text FROM users WHERE eggs_id = ANY($1) OR user_id = ANY($2)",
+		eggsids,
+		userids,
 	)
 	if err != nil {
 		RollbackTransaction(tx)
@@ -247,7 +306,7 @@ func GetUserCredentials(ctx context.Context, user User) (eggsID string, token st
 	err = tx.QueryRow(
 		ctx,
 		"SELECT eggs_id, token FROM users WHERE eggs_id = $1",
-		user.Data.EggsID,
+		user.EggsID,
 	).Scan(&eggsID, &token)
 	if err != nil {
 		RollbackTransaction(tx)

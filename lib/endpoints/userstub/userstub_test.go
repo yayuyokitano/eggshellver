@@ -28,6 +28,7 @@ func TestPost(t *testing.T) {
 
 	testUsers := []queries.UserStub{
 		{
+			UserID:         999999990,
 			EggsID:         os.Getenv("TESTUSER_ID"),
 			DisplayName:    "testuser",
 			IsArtist:       false,
@@ -36,6 +37,7 @@ func TestPost(t *testing.T) {
 			ProfileText:    "stan yayuyo",
 		},
 		{
+			UserID:         999999991,
 			EggsID:         os.Getenv("TESTUSER_ID2"),
 			DisplayName:    "testuser numero dos",
 			IsArtist:       true,
@@ -47,6 +49,7 @@ func TestPost(t *testing.T) {
 
 	testUserUpdate := []queries.UserStub{
 		{
+			UserID:         999999990,
 			EggsID:         os.Getenv("TESTUSER_ID"),
 			DisplayName:    "testuser!",
 			IsArtist:       false,
@@ -73,7 +76,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?eggsids=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
 	router.HandleMethod(userendpoint.Get, w, r)
 
 	if w.Code != http.StatusOK {
@@ -113,7 +116,7 @@ func TestPost(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?eggsids=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
 	router.HandleMethod(userendpoint.Get, w, r)
 
 	if w.Code != http.StatusOK {

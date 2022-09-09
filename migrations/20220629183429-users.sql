@@ -1,5 +1,6 @@
 -- +migrate Up
 CREATE TABLE users (
+	user_id INTEGER NOT NULL,
   eggs_id TEXT NOT NULL PRIMARY KEY,
   display_name TEXT NOT NULL,
   is_artist BOOLEAN NOT NULL,
@@ -9,7 +10,7 @@ CREATE TABLE users (
   token TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX user_prefecture_index ON users (prefecture_code);
-CREATE INDEX user_display_name_index ON users (display_name);
 CREATE INDEX user_token_index ON users (token);
+CREATE INDEX user_id_index ON users (user_id);
 -- +migrate Down
 DROP TABLE users;

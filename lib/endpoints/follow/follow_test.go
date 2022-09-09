@@ -20,6 +20,7 @@ import (
 
 var testUserStubs = []queries.UserStub{
 	{
+		UserID:         999999992,
 		EggsID:         "1",
 		DisplayName:    "1",
 		IsArtist:       true,
@@ -28,6 +29,7 @@ var testUserStubs = []queries.UserStub{
 		ProfileText:    "profiletext",
 	},
 	{
+		UserID:         999999993,
 		EggsID:         "2",
 		DisplayName:    "2",
 		IsArtist:       false,
@@ -36,6 +38,7 @@ var testUserStubs = []queries.UserStub{
 		ProfileText:    "",
 	},
 	{
+		UserID:         999999994,
 		EggsID:         "3",
 		DisplayName:    "3",
 		IsArtist:       false,
@@ -44,6 +47,7 @@ var testUserStubs = []queries.UserStub{
 		ProfileText:    "",
 	},
 	{
+		UserID:         999999995,
 		EggsID:         "4",
 		DisplayName:    "4",
 		IsArtist:       false,
@@ -52,6 +56,7 @@ var testUserStubs = []queries.UserStub{
 		ProfileText:    "",
 	},
 	{
+		UserID:         999999996,
 		EggsID:         "5",
 		DisplayName:    "5",
 		IsArtist:       false,

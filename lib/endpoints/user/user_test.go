@@ -122,6 +122,7 @@ func TestPost(t *testing.T) {
 	}
 
 	userStubs, err := json.Marshal([]queries.UserStub{{
+		UserID:         999999999,
 		EggsID:         os.Getenv("TESTUSER_ID"),
 		DisplayName:    "testuser",
 		IsArtist:       false,
@@ -178,17 +179,26 @@ func TestGet(t *testing.T) {
 	createUser(t, os.Getenv("TESTUSER_AUTHORIZATION"))
 	createUser(t, os.Getenv("TESTUSER_AUTHORIZATION2"))
 
-	r := httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s", os.Getenv("TESTUSER_ID")), nil)
+	r := httptest.NewRequest("GET", fmt.Sprintf("/users?eggsids=%s", os.Getenv("TESTUSER_ID")), nil)
 	testHasUsers(t, r, 1, []string{os.Getenv("TESTUSER_ID")})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?eggsids=%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")), nil)
 	testHasUsers(t, r, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")})
 
-	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s,%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"), os.Getenv("TESTUSER_FAILID")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?eggsids=%s,%s,%s", os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2"), os.Getenv("TESTUSER_FAILID")), nil)
+	testHasUsers(t, r, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?userids=%s", os.Getenv("TESTUSER_USERID")), nil)
+	testHasUsers(t, r, 1, []string{os.Getenv("TESTUSER_ID")})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?userids=%s,%s", os.Getenv("TESTUSER_USERID"), os.Getenv("TESTUSER_USERID2")), nil)
+	testHasUsers(t, r, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")})
+
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?userids=%s,%s,%d", os.Getenv("TESTUSER_USERID"), os.Getenv("TESTUSER_USERID2"), 999999980), nil)
 	testHasUsers(t, r, 2, []string{os.Getenv("TESTUSER_ID"), os.Getenv("TESTUSER_ID2")})
 
 	w := httptest.NewRecorder()
-	r = httptest.NewRequest("GET", fmt.Sprintf("/users?users=%s", os.Getenv("TESTUSER_FAILID")), nil)
+	r = httptest.NewRequest("GET", fmt.Sprintf("/users?eggsids=%s", os.Getenv("TESTUSER_FAILID")), nil)
 	router.HandleMethod(Get, w, r)
 
 	if w.Code != http.StatusOK {

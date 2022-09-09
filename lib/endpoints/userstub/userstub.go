@@ -3,6 +3,7 @@ package userstubendpoint
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,10 +13,13 @@ import (
 )
 
 func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
-	var users []queries.UserStub
+	var users queries.UserStubs
 	err := json.Unmarshal(b, &users)
 	if err != nil {
 		return logging.SE(http.StatusBadRequest, err)
+	}
+	if !users.IsValid() {
+		return logging.SE(http.StatusBadRequest, errors.New("invalid user stubs"))
 	}
 	inserted, updated, err := queries.PostUserStubs(context.Background(), users)
 	if err != nil {

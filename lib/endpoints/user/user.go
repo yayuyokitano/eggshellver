@@ -22,12 +22,13 @@ type Auth struct {
 }
 
 func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
-	users := queries.GetArray(r.URL.Query(), "users")
-	if len(users) == 0 {
+	userids := queries.GetIntArray(r.URL.Query(), "userids")
+	eggsids := queries.GetArray(r.URL.Query(), "eggsids")
+	if len(eggsids) == 0 && len(userids) == 0 {
 		return logging.SE(http.StatusBadRequest, errors.New("no users specified"))
 	}
 
-	output, err := queries.GetUsers(context.Background(), users)
+	output, err := queries.GetUsers(context.Background(), eggsids, userids)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
@@ -79,13 +80,14 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 		return logging.SE(http.StatusUnauthorized, errors.New("unauthorized"))
 	}
 
-	var user queries.User
-	err = json.Unmarshal(respBody, &user)
+	var userRaw queries.UserRaw
+	err = json.Unmarshal(respBody, &userRaw)
 	if err != nil {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
-	if user.Data.EggsID == "" {
-		return logging.SE(http.StatusBadRequest, errors.New("invalid token"))
+	user := userRaw.User()
+	if !user.IsValid() {
+		return logging.SE(http.StatusUnauthorized, errors.New("invalid user"))
 	}
 
 	eggsID, token, err := queries.GetUserCredentials(context.Background(), user)

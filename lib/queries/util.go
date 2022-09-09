@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"log"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v4"
@@ -17,6 +18,22 @@ func GetArray(query url.Values, key string) []string {
 		return []string{}
 	}
 	return strings.Split(query.Get(key), ",")
+}
+
+func GetIntArray(query url.Values, key string) []int {
+	if query.Get(key) == "" {
+		return []int{}
+	}
+	s := strings.Split(query.Get(key), ",")
+	var a []int
+	for _, v := range s {
+		i, err := strconv.Atoi(v)
+		if err != nil {
+			continue
+		}
+		a = append(a, i)
+	}
+	return a
 }
 
 func fetchTransaction() (tx pgx.Tx, err error) {
