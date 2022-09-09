@@ -11,6 +11,7 @@ import (
 
 type rawPlaylist struct {
 	PlaylistID     string    `db:"playlist_id"`
+	UserID         int       `db:"user_id"`
 	EggsID         string    `db:"eggs_id"`
 	DisplayName    string    `db:"display_name"`
 	IsArtist       bool      `db:"is_artist"`
@@ -58,6 +59,7 @@ func (r rawPlaylist) ToPlaylist() StructuredPlaylist {
 	return StructuredPlaylist{
 		PlaylistID: r.PlaylistID,
 		User: UserStub{
+			UserID:         r.UserID,
 			EggsID:         r.EggsID,
 			DisplayName:    r.DisplayName,
 			IsArtist:       r.IsArtist,
@@ -103,7 +105,7 @@ func GetPlaylists(ctx context.Context, eggsIDs []string, playlistIDs []string, p
 
 	var query string
 	var query2 string
-	prefix := "SELECT ul.playlist_id, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.last_modified FROM playlists ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
+	prefix := "SELECT ul.playlist_id, u.user_id, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.last_modified FROM playlists ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
 	prefix2 := "SELECT COUNT(*) FROM playlists WHERE "
 	args := make([]interface{}, 0)
 	if len(playlistIDs) == 0 {

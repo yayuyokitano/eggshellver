@@ -12,6 +12,7 @@ import (
 type rawLike struct {
 	ID             string    `db:"target_id"`
 	Type           string    `db:"target_type"`
+	UserID         int       `db:"user_id"`
 	EggsID         string    `db:"eggs_id"`
 	DisplayName    string    `db:"display_name"`
 	IsArtist       bool      `db:"is_artist"`
@@ -38,6 +39,7 @@ func (r rawLike) ToLike() StructuredLike {
 		ID:   r.ID,
 		Type: r.Type,
 		User: UserStub{
+			UserID:         r.UserID,
 			EggsID:         r.EggsID,
 			DisplayName:    r.DisplayName,
 			IsArtist:       r.IsArtist,
@@ -145,7 +147,7 @@ func GetLikedObjects(ctx context.Context, eggsIDs []string, targetIDs []string, 
 		return
 	}
 
-	query := "SELECT ul.target_id, ul.target_type, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.added_time FROM user_likes ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
+	query := "SELECT ul.target_id, ul.target_type, u.user_id, u.eggs_id, u.display_name, u.is_artist, u.image_data_path, u.prefecture_code, u.profile_text, ul.added_time FROM user_likes ul INNER JOIN users u ON ul.eggs_id = u.eggs_id AND "
 	query2 := "SELECT COUNT(*) FROM user_likes WHERE "
 	args := make([]interface{}, 0)
 

@@ -10,12 +10,14 @@ import (
 )
 
 type rawFollow struct {
+	UserID1         int       `db:"user_id1"`
 	EggsID1         string    `db:"eggs_id1"`
 	DisplayName1    string    `db:"display_name1"`
 	IsArtist1       bool      `db:"is_artist1"`
 	ImageDataPath1  string    `db:"image_data_path1"`
 	PrefectureCode1 int       `db:"prefecture_code1"`
 	ProfileText1    string    `db:"profile_text1"`
+	UserID2         int       `db:"user_id2"`
 	EggsID2         string    `db:"eggs_id2"`
 	DisplayName2    string    `db:"display_name2"`
 	IsArtist2       bool      `db:"is_artist2"`
@@ -39,6 +41,7 @@ type StructuredFollows struct {
 func (r rawFollow) ToFollow() StructuredFollow {
 	return StructuredFollow{
 		Follower: UserStub{
+			UserID:         r.UserID1,
 			EggsID:         r.EggsID1,
 			DisplayName:    r.DisplayName1,
 			IsArtist:       r.IsArtist1,
@@ -47,6 +50,7 @@ func (r rawFollow) ToFollow() StructuredFollow {
 			ProfileText:    r.ProfileText1,
 		},
 		Followee: UserStub{
+			UserID:         r.UserID2,
 			EggsID:         r.EggsID2,
 			DisplayName:    r.DisplayName2,
 			IsArtist:       r.IsArtist2,
@@ -134,7 +138,7 @@ func GetFollows(ctx context.Context, followerIDs []string, followeeIDs []string,
 	}
 	var query string
 	var query2 string
-	prefix := "SELECT u1.eggs_id AS eggs_id1, u1.display_name AS display_name1, u1.is_artist AS is_artist1, u1.image_data_path AS image_data_path1, u1.prefecture_code AS prefecture_code1, u1.profile_text AS profile_text1, u2.eggs_id AS eggs_id2, u2.display_name AS display_name2, u2.is_artist AS is_artist2, u2.image_data_path AS image_data_path2, u2.prefecture_code AS prefecture_code2, u2.profile_text AS profile_text2, uf.added_time FROM user_follows uf "
+	prefix := "SELECT u1.user_id AS user_id1, u1.eggs_id AS eggs_id1, u1.display_name AS display_name1, u1.is_artist AS is_artist1, u1.image_data_path AS image_data_path1, u1.prefecture_code AS prefecture_code1, u1.profile_text AS profile_text1, u2.user_id AS user_id2, u2.eggs_id AS eggs_id2, u2.display_name AS display_name2, u2.is_artist AS is_artist2, u2.image_data_path AS image_data_path2, u2.prefecture_code AS prefecture_code2, u2.profile_text AS profile_text2, uf.added_time FROM user_follows uf "
 	prefix2 := "SELECT COUNT(*) FROM user_follows "
 	args := make([]interface{}, 0)
 	if len(followerIDs) == 0 {
