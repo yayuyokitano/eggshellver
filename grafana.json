@@ -90,7 +90,7 @@
           },
           "mappings": [],
           "thresholds": {
-            "mode": "absolute",
+            "mode": "percentage",
             "steps": [
               {
                 "color": "purple",
@@ -98,7 +98,7 @@
               },
               {
                 "color": "blue",
-                "value": 80
+                "value": 100
               }
             ]
           }
@@ -671,6 +671,89 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "purple",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 11
+      },
+      "id": 28,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 50,
+          "valueSize": 72
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "sum(eggshellver_requests_received{method!=\"OPTIONS\"})",
+          "legendFormat": "Made",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "sum(eggshellver_requests_completed_count{method!=\"OPTIONS\"})",
+          "hide": false,
+          "legendFormat": "Completed",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Requests",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -784,9 +867,9 @@
         ]
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
+        "h": 6,
+        "w": 7,
+        "x": 9,
         "y": 11
       },
       "id": 11,
@@ -809,7 +892,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "builder",
-          "expr": "group(rate(eggshellver_requests_errored[5m]))",
+          "expr": "sum(rate(eggshellver_requests_errored[5m]))",
           "hide": false,
           "legendFormat": "Errored",
           "range": true,
@@ -821,7 +904,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "builder",
-          "expr": "group(rate(eggshellver_requests_completed_count[5m]))",
+          "expr": "sum(rate(eggshellver_requests_completed_count{method!=\"OPTIONS\"}[5m]))",
           "hide": false,
           "legendFormat": "Successful",
           "range": true,
@@ -892,9 +975,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
+        "h": 6,
+        "w": 8,
+        "x": 16,
         "y": 11
       },
       "id": 13,
@@ -973,7 +1056,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -989,7 +1073,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 17
       },
       "id": 15,
       "options": {
@@ -1066,7 +1150,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1082,7 +1167,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 17
       },
       "id": 17,
       "options": {
@@ -1159,7 +1244,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1175,7 +1261,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 25
       },
       "id": 18,
       "options": {
@@ -1252,7 +1338,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1268,7 +1355,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 25
       },
       "id": 16,
       "options": {
@@ -1344,7 +1431,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1360,7 +1448,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 33
       },
       "id": 26,
       "options": {
@@ -1390,6 +1478,89 @@
       ],
       "title": "Errors",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "purple",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 44
+      },
+      "id": 29,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 50,
+          "valueSize": 72
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "sum(eggshellver_fetches{method!=\"OPTIONS\"})",
+          "legendFormat": "Made",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "sum(eggshellver_fetches_completed_count{method!=\"OPTIONS\"})",
+          "hide": false,
+          "legendFormat": "Completed",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "External Requests",
+      "transparent": true,
+      "type": "stat"
     },
     {
       "datasource": {
@@ -1439,7 +1610,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           }
@@ -1508,10 +1680,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 46
+        "h": 6,
+        "w": 8,
+        "x": 9,
+        "y": 44
       },
       "id": 19,
       "options": {
@@ -1602,7 +1774,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1615,10 +1788,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 46
+        "h": 6,
+        "w": 7,
+        "x": 17,
+        "y": 44
       },
       "id": 20,
       "options": {
@@ -1696,7 +1869,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1712,7 +1886,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 50
       },
       "id": 21,
       "options": {
@@ -1789,7 +1963,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1805,7 +1980,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 54
+        "y": 50
       },
       "id": 22,
       "options": {
@@ -1882,7 +2057,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1898,7 +2074,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 62
+        "y": 58
       },
       "id": 24,
       "options": {
@@ -1975,7 +2151,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1991,7 +2168,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 62
+        "y": 58
       },
       "id": 23,
       "options": {
@@ -2067,7 +2244,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2083,7 +2261,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 70
+        "y": 66
       },
       "id": 27,
       "options": {
@@ -2130,6 +2308,6 @@
   "timezone": "",
   "title": "Eggshellver",
   "uid": "pYCyg7G4z",
-  "version": 6,
+  "version": 8,
   "weekStart": ""
 }
