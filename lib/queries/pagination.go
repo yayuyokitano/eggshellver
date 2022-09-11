@@ -13,7 +13,7 @@ type Paginator struct {
 func InitializePaginator(query url.Values) Paginator {
 	limit, err := strconv.Atoi(query.Get("limit"))
 	if err != nil {
-		limit = 10
+		limit = 50
 	}
 	offset, err := strconv.Atoi(query.Get("offset"))
 	if err != nil {

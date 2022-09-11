@@ -107,7 +107,7 @@ func TestPost(t *testing.T) {
 	testHasPlaylists(t, r, bulkSize, int64(bulkSize), []queries.PartialPlaylist{})
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/playlists?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasPlaylists(t, r, 10, int64(bulkSize), []queries.PartialPlaylist{{
+	testHasPlaylists(t, r, 50, int64(bulkSize), []queries.PartialPlaylist{{
 		EggsID:     os.Getenv("TESTUSER_ID"),
 		PlaylistID: playlists[0].PlaylistID,
 	}})

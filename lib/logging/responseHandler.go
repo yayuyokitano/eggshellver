@@ -59,8 +59,12 @@ func LogFetch(r *http.Request) {
 }
 
 func LogFetchErrored(r *http.Request, resp *http.Response) {
-	opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(resp.StatusCode)).Inc()
 	log.Print(r.Body, " ", r.Method, " ", r.URL.String())
+	if resp != nil {
+		opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(resp.StatusCode)).Inc()
+	} else {
+		opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, "0").Inc()
+	}
 	//log.Println(r.Method, r.URL.String())
 }
 
@@ -91,4 +95,17 @@ func AddLikes(count int, targetType string) {
 
 func AddPlaylists(count int) {
 	playlistCount.Add(float64(count))
+}
+
+func AddSongs(count int) {
+	songCount.Add(float64(count))
+}
+
+func CompleteCache() {
+	opPartialCacheSucceeded.Inc()
+}
+
+func FailCache(err error) {
+	log.Println(err)
+	opPartialCacheErrored.Inc()
 }

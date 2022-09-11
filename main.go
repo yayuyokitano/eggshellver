@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
+	"github.com/yayuyokitano/eggshellver/lib/cachecreator"
 	followendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/follow"
 	likeendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/like"
 	playlistendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/playlist"
+	"github.com/yayuyokitano/eggshellver/lib/endpoints/timeline"
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
 	"github.com/yayuyokitano/eggshellver/lib/logging"
@@ -20,16 +23,25 @@ import (
 )
 
 func main() {
-	if os.Args[1] == "migrate" {
+	switch os.Args[1] {
+	case "migrate":
 		fmt.Println("Performing migration...")
 		performMigration(true)
 		fmt.Println("Migration complete!")
 		return
-	}
-	if os.Args[1] != "start" {
+	case "createcache":
+		services.Start()
+		defer services.Stop()
+		go logging.ServeLogs()
+		cachecreator.AttemptRunPartialCache()
+		fmt.Println("Cache creation complete!")
+		return
+	case "start":
+		fmt.Println("Starting server...")
+	default:
+		fmt.Println("Invalid command")
 		return
 	}
-	fmt.Println("Starting server...")
 	services.Start()
 	defer services.Stop()
 	fmt.Println("Connected to Postgres!")
@@ -82,7 +94,14 @@ func startServer() {
 		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
 	})
+	router.Handle("/timeline", router.Methods{
+		POST:   router.ReturnMethodNotAllowed,
+		GET:    timeline.Get,
+		PUT:    router.ReturnMethodNotAllowed,
+		DELETE: router.ReturnMethodNotAllowed,
+	})
 	go logging.ServeLogs()
+	go cachecreator.StartCacheLoop(1 * time.Hour)
 	http.ListenAndServeTLS(":10000", "cert.pem", "key.pem", nil)
 }
 

@@ -28,6 +28,13 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if se != nil {
 		return se
 	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(followedUsers) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
+	}
 
 	n, err := queries.SubmitFollows(context.Background(), eggsID, followedUsers)
 	if err != nil {
@@ -64,6 +71,13 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if se != nil {
 		return se
 	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(follows) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
+	}
 
 	delta, total, err := queries.PutFollows(context.Background(), eggsID, follows)
 	if err != nil {
@@ -79,6 +93,12 @@ func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	eggsID, se := router.AuthenticateIndividualPostRequest(w, r, b, &follow)
 	if se != nil {
 		return se
+	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if follow == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("follow is required"))
 	}
 
 	isFollowing, err := queries.ToggleFollow(context.Background(), eggsID, follow)

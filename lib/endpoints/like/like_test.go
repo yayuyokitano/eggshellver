@@ -137,7 +137,7 @@ func TestPost(t *testing.T) {
 	testHasLikes(t, r, 4*bulkSize/5, int64(4*bulkSize/5), []queries.PartialLike{})
 
 	r = httptest.NewRequest("GET", fmt.Sprintf("/likes?eggsIDs=%s", os.Getenv("TESTUSER_ID")), nil)
-	testHasLikes(t, r, 10, int64(bulkSize), []queries.PartialLike{{
+	testHasLikes(t, r, 50, int64(bulkSize), []queries.PartialLike{{
 		EggsID:   os.Getenv("TESTUSER_ID"),
 		TargetID: playlistLikes.Targets[0].ID,
 	}})

@@ -19,6 +19,13 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if se != nil {
 		return se
 	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(playlists) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
+	}
 
 	inserted, updated, err := queries.PostPlaylists(context.Background(), eggsID, playlists)
 	if err != nil {
@@ -55,6 +62,13 @@ func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	if se != nil {
 		return se
 	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(deletedPlaylists) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
+	}
 
 	n, err := queries.DeletePlaylists(context.Background(), eggsID, deletedPlaylists)
 	if err != nil {
@@ -70,6 +84,13 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	eggsID, se := router.AuthenticatePostRequest(w, r, b, &playlists)
 	if se != nil {
 		return se
+	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(playlists) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
 	}
 
 	delta, total, err := queries.PutPlaylists(context.Background(), eggsID, playlists)

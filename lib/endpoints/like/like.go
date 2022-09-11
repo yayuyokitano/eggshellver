@@ -19,7 +19,13 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if se != nil {
 		return se
 	}
-
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(likes.Targets) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
+	}
 	if !likes.IsValid() {
 		return logging.SE(http.StatusBadRequest, errors.New("invalid likedTracks"))
 	}
@@ -60,7 +66,13 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	if se != nil {
 		return se
 	}
-
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
+	}
+	if len(likes.Targets) == 0 {
+		fmt.Fprint(w, 0)
+		return nil
+	}
 	if !likes.IsValid() {
 		return logging.SE(http.StatusBadRequest, errors.New("invalid likes"))
 	}
@@ -85,6 +97,9 @@ func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	target := queries.LikeTarget{
 		ID:   targetID,
 		Type: targetType,
+	}
+	if eggsID == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("eggsID is required"))
 	}
 	if !target.IsValid() {
 		return logging.SE(http.StatusBadRequest, errors.New("invalid target"))

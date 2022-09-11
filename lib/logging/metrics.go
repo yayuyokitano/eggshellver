@@ -61,6 +61,18 @@ var (
 		Name: "eggshellver_playlist_count",
 		Help: "The number of playlists",
 	})
+	songCount = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "eggshellver_song_count",
+		Help: "The number of songs",
+	})
+	opPartialCacheSucceeded = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "eggshellver_partial_cache_succeeded",
+		Help: "The number of partial caches succeeded",
+	})
+	opPartialCacheErrored = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "eggshellver_partial_cache_errored",
+		Help: "The number of partial caches that errored",
+	})
 )
 
 func setUserCounts() {
@@ -105,6 +117,13 @@ func setUserCounts() {
 		return
 	}
 	playlistCount.Set(float64(playlists))
+
+	songs, err := queries.GetSongCount(context.Background())
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	songCount.Set(float64(songs))
 }
 
 func ServeLogs() {
