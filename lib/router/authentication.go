@@ -53,8 +53,12 @@ func AuthenticateDeleteRequest(r *http.Request, v *[]string) (eggsID string, sta
 	return
 }
 
-func AuthenticateSpecificUser(r *http.Request, user string) (statusErr *logging.StatusError) {
-	eggsID, err := authenticateUser(r.Header.Get("Authorization"))
+func AuthenticateSpecificUser(r *http.Request) (statusErr *logging.StatusError) {
+	authSplit := strings.Split(r.URL.Path, "/")
+	token := authSplit[len(authSplit)-1]
+	user := authSplit[len(authSplit)-2]
+
+	eggsID, err := authenticateUser("Bearer " + token)
 	if err != nil || eggsID != user {
 		statusErr = logging.SE(http.StatusUnauthorized, err)
 	}

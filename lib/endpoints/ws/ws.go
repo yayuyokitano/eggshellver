@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
+	"github.com/yayuyokitano/eggshellver/lib/hub"
 	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
@@ -21,13 +22,18 @@ var upgrader = websocket.Upgrader{
 
 func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 	userSplit := strings.Split(r.URL.Path, "/")
-	user := userSplit[len(userSplit)-1]
+	user := userSplit[len(userSplit)-2]
 	if user == "" {
 		return logging.SE(http.StatusBadRequest, errors.New("please specify room to join"))
 	}
 
-	hub := services.GetHub(user)
-	if hub == nil {
+	se := router.AuthenticateSpecificUser(r)
+	if se != nil {
+		return se
+	}
+
+	targetHub := services.GetHub(user)
+	if targetHub == nil {
 		return logging.SE(http.StatusBadRequest, errors.New("room does not exist"))
 	}
 
@@ -36,22 +42,22 @@ func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 		return logging.SE(http.StatusInternalServerError, err)
 	}
 
-	client := &services.Client{Hub: hub, Conn: conn, Send: make(chan []byte, 256)}
-	client.Hub.Register <- client
+	client := &hub.Client{Hub: targetHub, Conn: conn, Send: make(chan []byte, 256)}
+	client.Hub.Hub.Register <- client
 
 	go client.WritePump()
-	go client.ReadPump()
+	go client.ReadPump(user)
 	return nil
 }
 
 func Create(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 	userSplit := strings.Split(r.URL.Path, "/")
-	user := userSplit[len(userSplit)-1]
+	user := userSplit[len(userSplit)-2]
 	if user == "" {
 		return logging.SE(http.StatusBadRequest, errors.New("please specify room to create"))
 	}
 
-	err := router.AuthenticateSpecificUser(r, user)
+	err := router.AuthenticateSpecificUser(r)
 	if err != nil {
 		return err
 	}

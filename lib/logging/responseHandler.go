@@ -25,7 +25,7 @@ func SE(code int, err error) *StatusError {
 
 func HandleError(bubbledErr StatusError, r *http.Request, b []byte, t time.Time) {
 	opsRequestsErrored.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(bubbledErr.Code)).Inc()
-	//log.Println(time.Since(t).String(), bubbledErr.Code, bubbledErr.Err.Error(), r.Method, r.URL.Path, r.URL.Query(), string(b))
+	log.Println(time.Since(t).String(), bubbledErr.Code, bubbledErr.Err.Error(), r.Method, r.URL.Path, r.URL.Query(), string(b))
 }
 
 func censorKey(b []byte, endChar string) []byte {
