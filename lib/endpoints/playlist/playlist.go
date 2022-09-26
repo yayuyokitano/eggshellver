@@ -15,7 +15,7 @@ import (
 
 func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var playlists []queries.PlaylistInput
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &playlists)
+	eggsID, se := router.AuthenticatePostRequest(r, b, &playlists)
 	if se != nil {
 		return se
 	}
@@ -58,7 +58,7 @@ func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 
 func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 	var deletedPlaylists []string
-	eggsID, se := router.AuthenticateDeleteRequest(w, r, &deletedPlaylists)
+	eggsID, se := router.AuthenticateDeleteRequest(r, &deletedPlaylists)
 	if se != nil {
 		return se
 	}
@@ -81,7 +81,7 @@ func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 
 func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var playlists queries.PlaylistInputs
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &playlists)
+	eggsID, se := router.AuthenticatePostRequest(r, b, &playlists)
 	if se != nil {
 		return se
 	}

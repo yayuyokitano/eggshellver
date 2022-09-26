@@ -11,11 +11,14 @@ import (
 
 var Pool *pgxpool.Pool
 var IsTesting bool
+var hubs map[string]*Hub
 
 func Start() (err error) {
 	if os.Getenv("TESTING") == "true" {
 		IsTesting = true
 	}
+
+	hubs = make(map[string]*Hub)
 
 	connectionString := fmt.Sprintf("postgresql://%s:%s@db:5432/%s?pool_max_conns=100",
 		os.Getenv("POSTGRES_USER"), url.QueryEscape(os.Getenv("POSTGRES_PASSWORD")), os.Getenv("POSTGRES_DB"))

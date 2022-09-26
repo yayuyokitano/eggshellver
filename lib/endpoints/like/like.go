@@ -15,7 +15,7 @@ import (
 
 func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var likes queries.LikeTargetsFixed
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &likes)
+	eggsID, se := router.AuthenticatePostRequest(r, b, &likes)
 	if se != nil {
 		return se
 	}
@@ -62,7 +62,7 @@ func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 
 func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var likes queries.LikeTargetsFixed
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &likes)
+	eggsID, se := router.AuthenticatePostRequest(r, b, &likes)
 	if se != nil {
 		return se
 	}
@@ -89,7 +89,7 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var targetID string
 	var targetType string
-	eggsID, se := router.AuthenticateIndividualPostRequest(w, r, b, &targetType, &targetID)
+	eggsID, se := router.AuthenticateIndividualPostRequest(r, b, &targetType, &targetID)
 	if se != nil {
 		return se
 	}

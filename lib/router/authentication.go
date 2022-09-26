@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/yayuyokitano/eggshellver/lib/queries"
 )
 
-func AuthenticatePostRequest[V any](w io.Writer, r *http.Request, b []byte, v *V) (eggsID string, statusErr *logging.StatusError) {
+func AuthenticatePostRequest[V any](r *http.Request, b []byte, v *V) (eggsID string, statusErr *logging.StatusError) {
 	err := json.Unmarshal(b, v)
 	if err != nil {
 		statusErr = logging.SE(http.StatusBadRequest, err)
@@ -25,7 +24,7 @@ func AuthenticatePostRequest[V any](w io.Writer, r *http.Request, b []byte, v *V
 	return
 }
 
-func AuthenticateIndividualPostRequest(w io.Writer, r *http.Request, b []byte, v ...*string) (eggsID string, statusErr *logging.StatusError) {
+func AuthenticateIndividualPostRequest(r *http.Request, b []byte, v ...*string) (eggsID string, statusErr *logging.StatusError) {
 	pathSplit := strings.Split(r.URL.Path, "/")
 	if len(pathSplit) < len(v)+2 {
 		statusErr = logging.SE(http.StatusBadRequest, errors.New("invalid path"))
@@ -45,10 +44,18 @@ func AuthenticateIndividualPostRequest(w io.Writer, r *http.Request, b []byte, v
 	return
 }
 
-func AuthenticateDeleteRequest(w io.Writer, r *http.Request, v *[]string) (eggsID string, statusErr *logging.StatusError) {
+func AuthenticateDeleteRequest(r *http.Request, v *[]string) (eggsID string, statusErr *logging.StatusError) {
 	*v = queries.GetArray(r.URL.Query(), "target")
 	eggsID, err := authenticateUser(r.Header.Get("Authorization"))
 	if err != nil {
+		statusErr = logging.SE(http.StatusUnauthorized, err)
+	}
+	return
+}
+
+func AuthenticateSpecificUser(r *http.Request, user string) (statusErr *logging.StatusError) {
+	eggsID, err := authenticateUser(r.Header.Get("Authorization"))
+	if err != nil || eggsID != user {
 		statusErr = logging.SE(http.StatusUnauthorized, err)
 	}
 	return

@@ -11,12 +11,35 @@ import (
 )
 
 type HTTPImplementer = func(io.Writer, *http.Request, []byte) *logging.StatusError
+type WebSocketEstablisher = func(http.ResponseWriter, *http.Request) *logging.StatusError
 
 type Methods struct {
 	GET    HTTPImplementer
 	POST   HTTPImplementer
 	PUT    HTTPImplementer
 	DELETE HTTPImplementer
+}
+
+func HandleWebsocket(endpoint string, method WebSocketEstablisher) {
+	http.HandleFunc(endpoint, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			logging.LogRequest(r, nil)
+			t := time.Now()
+			handleCors(w)
+			se := method(w, r)
+			if se != nil {
+				logging.HandleError(*se, r, nil, t)
+				http.Error(w, se.Err.Error(), se.Code)
+				return
+			}
+			logging.LogRequestCompletion(*bytes.NewBuffer([]byte("")), r, t)
+		case "OPTIONS": // CORS preflight request
+			HandleMethod(HandleCORSPreflight, w, r)
+		default:
+			HandleMethod(ReturnMethodNotAllowed, w, r)
+		}
+	})
 }
 
 func Handle(endpoint string, m Methods) {

@@ -17,6 +17,7 @@ import (
 	"github.com/yayuyokitano/eggshellver/lib/endpoints/timeline"
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
+	wsendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/ws"
 	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
@@ -100,6 +101,10 @@ func startServer() {
 		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
 	})
+
+	router.HandleWebsocket("/ws/join/", wsendpoint.Establish)
+	router.HandleWebsocket("/ws/create/", wsendpoint.Create)
+
 	go logging.ServeLogs()
 	go cachecreator.StartCacheLoop(1 * time.Hour)
 	http.ListenAndServeTLS(":10000", "cert.pem", "key.pem", nil)

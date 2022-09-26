@@ -24,7 +24,7 @@ type LikedTracks struct {
 
 func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var followedUsers []string
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &followedUsers)
+	eggsID, se := router.AuthenticatePostRequest(r, b, &followedUsers)
 	if se != nil {
 		return se
 	}
@@ -67,7 +67,7 @@ func Get(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
 
 func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var follows []string
-	eggsID, se := router.AuthenticatePostRequest(w, r, b, &follows)
+	eggsID, se := router.AuthenticatePostRequest(r, b, &follows)
 	if se != nil {
 		return se
 	}
@@ -90,7 +90,7 @@ func Put(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 
 func Toggle(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	var follow string
-	eggsID, se := router.AuthenticateIndividualPostRequest(w, r, b, &follow)
+	eggsID, se := router.AuthenticateIndividualPostRequest(r, b, &follow)
 	if se != nil {
 		return se
 	}
