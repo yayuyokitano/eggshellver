@@ -1,6 +1,7 @@
 package wsendpoint
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -8,8 +9,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/yayuyokitano/eggshellver/lib/hub"
 	"github.com/yayuyokitano/eggshellver/lib/logging"
+	"github.com/yayuyokitano/eggshellver/lib/queries"
 	"github.com/yayuyokitano/eggshellver/lib/router"
-	"github.com/yayuyokitano/eggshellver/lib/services"
 )
 
 var upgrader = websocket.Upgrader{
@@ -32,9 +33,22 @@ func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 		return se
 	}
 
-	targetHub := services.GetHub(room)
+	targetHub := hub.GetHub(room)
 	if targetHub == nil {
 		return logging.SE(http.StatusBadRequest, errors.New("room does not exist"))
+	}
+
+	users, err := queries.GetUsers(context.Background(), []string{user}, []int{})
+	if err != nil {
+		return logging.SE(http.StatusInternalServerError, err)
+	}
+	if len(users) == 0 {
+		return logging.SE(http.StatusBadRequest, errors.New("user does not exist"))
+	}
+
+	userStub := users[0]
+	if userStub.EggsID != user {
+		return logging.SE(http.StatusBadRequest, errors.New("user does not exist"))
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -46,7 +60,7 @@ func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 	client.Hub.Hub.Register <- client
 
 	go client.WritePump()
-	go client.ReadPump(user)
+	go client.ReadPump(userStub)
 	return nil
 }
 
@@ -62,6 +76,6 @@ func Create(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 		return err
 	}
 
-	services.AttachHub(user)
+	hub.AttachHub(user)
 	return Establish(w, r)
 }

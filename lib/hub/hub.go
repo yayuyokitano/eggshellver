@@ -7,7 +7,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/yayuyokitano/eggshellver/lib/queries"
 )
+
+var hubs map[string]*AuthedHub
+
+func Init() {
+	hubs = make(map[string]*AuthedHub)
+}
 
 func websocketError(err error) {
 	log.Println(err)
@@ -50,10 +57,10 @@ type Client struct {
 }
 
 type AuthedMessage struct {
-	Privileged bool   `json:"privileged"`
-	Blocked    bool   `json:"blocked"`
-	Sender     string `json:"sender"`
-	Message    string `json:"message"`
+	Privileged bool             `json:"privileged"`
+	Blocked    bool             `json:"blocked"`
+	Sender     queries.UserStub `json:"sender"`
+	Message    string           `json:"message"`
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -61,7 +68,7 @@ type AuthedMessage struct {
 // The application runs readPump in a per-connection goroutine. The application
 // ensures that there is at most one reader on a connection by executing all
 // reads from this goroutine.
-func (c *Client) ReadPump(user string) {
+func (c *Client) ReadPump(user queries.UserStub) {
 	defer func() {
 		c.Hub.Hub.Unregister <- c
 		c.Conn.Close()
@@ -77,9 +84,10 @@ func (c *Client) ReadPump(user string) {
 			}
 			break
 		}
+
 		message, err := json.Marshal(AuthedMessage{
-			Privileged: c.Hub.Owner == user,
-			Blocked:    user == "" || c.Hub.Blocklist[user],
+			Privileged: c.Hub.Owner == user.EggsID,
+			Blocked:    user.EggsID == "" || c.Hub.Blocklist[user.EggsID],
 			Sender:     user,
 			Message:    string(bytes.TrimSpace(bytes.Replace(rawMessage, newline, space, -1))),
 		})
@@ -153,7 +161,7 @@ type Hub struct {
 	Unregister chan *Client
 }
 
-func NewHub() *Hub {
+func newHub() *Hub {
 	return &Hub{
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *Client),
@@ -162,7 +170,7 @@ func NewHub() *Hub {
 	}
 }
 
-func (h *Hub) Run() {
+func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.Register:
@@ -183,4 +191,17 @@ func (h *Hub) Run() {
 			}
 		}
 	}
+}
+
+func AttachHub(user string) {
+	hubs[user] = &AuthedHub{
+		Hub:       newHub(),
+		Owner:     user,
+		Blocklist: make(map[string]bool),
+	}
+	go hubs[user].Hub.run()
+}
+
+func GetHub(user string) *AuthedHub {
+	return hubs[user]
 }

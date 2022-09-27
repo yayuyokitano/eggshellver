@@ -18,6 +18,7 @@ import (
 	userendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/user"
 	userstubendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/userstub"
 	wsendpoint "github.com/yayuyokitano/eggshellver/lib/endpoints/ws"
+	"github.com/yayuyokitano/eggshellver/lib/hub"
 	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/router"
 	"github.com/yayuyokitano/eggshellver/lib/services"
@@ -44,6 +45,7 @@ func main() {
 		return
 	}
 	services.Start()
+	hub.Init()
 	defer services.Stop()
 	fmt.Println("Connected to Postgres!")
 	fmt.Println("===========")
