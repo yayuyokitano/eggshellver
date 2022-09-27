@@ -52,6 +52,7 @@ type Client struct {
 type AuthedMessage struct {
 	Privileged bool   `json:"privileged"`
 	Blocked    bool   `json:"blocked"`
+	Sender     string `json:"sender"`
 	Message    string `json:"message"`
 }
 
@@ -79,6 +80,7 @@ func (c *Client) ReadPump(user string) {
 		message, err := json.Marshal(AuthedMessage{
 			Privileged: c.Hub.Owner == user,
 			Blocked:    user == "" || c.Hub.Blocklist[user],
+			Sender:     user,
 			Message:    string(bytes.TrimSpace(bytes.Replace(rawMessage, newline, space, -1))),
 		})
 		if err != nil {

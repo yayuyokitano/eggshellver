@@ -22,17 +22,17 @@ var upgrader = websocket.Upgrader{
 
 func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 	userSplit := strings.Split(r.URL.Path, "/")
-	user := userSplit[len(userSplit)-2]
-	if user == "" {
+	room := userSplit[len(userSplit)-2]
+	if room == "" {
 		return logging.SE(http.StatusBadRequest, errors.New("please specify room to join"))
 	}
 
-	se := router.AuthenticateSpecificUser(r)
+	user, se := router.EggsIDFromToken(r)
 	if se != nil {
 		return se
 	}
 
-	targetHub := services.GetHub(user)
+	targetHub := services.GetHub(room)
 	if targetHub == nil {
 		return logging.SE(http.StatusBadRequest, errors.New("room does not exist"))
 	}

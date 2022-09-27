@@ -65,6 +65,17 @@ func AuthenticateSpecificUser(r *http.Request) (statusErr *logging.StatusError) 
 	return
 }
 
+func EggsIDFromToken(r *http.Request) (eggsID string, statusErr *logging.StatusError) {
+	authSplit := strings.Split(r.URL.Path, "/")
+	token := authSplit[len(authSplit)-1]
+
+	eggsID, err := authenticateUser("Bearer " + token)
+	if err != nil {
+		statusErr = logging.SE(http.StatusUnauthorized, err)
+	}
+	return
+}
+
 func authenticateUser(bearer string) (eggsID string, err error) {
 	eggsID, err = queries.GetEggsIDByToken(context.Background(), bearer[7:])
 	return
