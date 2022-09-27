@@ -42,7 +42,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	maxMessageSize = 65536
 )
 
 // Client is a middleman between the websocket connection and the hub.
