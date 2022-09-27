@@ -2,7 +2,9 @@ package wsendpoint
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -78,4 +80,16 @@ func Create(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 
 	hub.AttachHub(user)
 	return Establish(w, r)
+}
+
+func GetHubs(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
+	output := hub.GetHubs()
+
+	b, err := json.Marshal(output)
+	if err != nil {
+		return logging.SE(http.StatusInternalServerError, err)
+	}
+
+	w.Write(b)
+	return nil
 }

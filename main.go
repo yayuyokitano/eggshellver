@@ -106,6 +106,12 @@ func startServer() {
 
 	router.HandleWebsocket("/ws/join/", wsendpoint.Establish)
 	router.HandleWebsocket("/ws/create/", wsendpoint.Create)
+	router.Handle("/ws/list", router.Methods{
+		POST:   router.ReturnMethodNotAllowed,
+		GET:    wsendpoint.GetHubs,
+		PUT:    router.ReturnMethodNotAllowed,
+		DELETE: router.ReturnMethodNotAllowed,
+	})
 
 	go logging.ServeLogs()
 	go cachecreator.StartCacheLoop(1 * time.Hour)

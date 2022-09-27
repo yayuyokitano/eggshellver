@@ -63,6 +63,11 @@ type AuthedMessage struct {
 	Message    string           `json:"message"`
 }
 
+type RawMessage struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
 // readPump pumps messages from the websocket connection to the hub.
 //
 // The application runs readPump in a per-connection goroutine. The application
@@ -85,7 +90,23 @@ func (c *Client) ReadPump(user queries.UserStub) {
 			break
 		}
 
-		message, err := json.Marshal(AuthedMessage{
+		var message RawMessage
+		err = json.Unmarshal(rawMessage, &message)
+		if err != nil {
+			websocketError(err)
+			break
+		}
+		if message.Type == "start" {
+			var songStub RawSongStub
+			err = json.Unmarshal([]byte(message.Message), &songStub)
+			if err != nil {
+				websocketError(err)
+				break
+			}
+			c.Hub.Hub.Song = songStub.ToSongStub()
+		}
+
+		reply, err := json.Marshal(AuthedMessage{
 			Privileged: c.Hub.Owner == user.EggsID,
 			Blocked:    user.EggsID == "" || c.Hub.Blocklist[user.EggsID],
 			Sender:     user,
@@ -95,7 +116,7 @@ func (c *Client) ReadPump(user queries.UserStub) {
 			websocketError(err)
 			break
 		}
-		c.Hub.Hub.Broadcast <- message
+		c.Hub.Hub.Broadcast <- reply
 	}
 }
 
@@ -159,14 +180,56 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	Unregister chan *Client
+
+	// Owner of hub
+	Owner string
+
+	// Currently playing song
+	Song SongStub
+
+	// Room title
+	Title string
 }
 
-func newHub() *Hub {
+type RawSongStub struct {
+	MusicTitle    string `json:"musicTitle"`
+	MusicDataPath string `json:"musicDataPath"`
+	ArtistData    struct {
+		DisplayName   string `json:"displayName"`
+		ImageDataPath string `json:"imageDataPath"`
+	} `json:"artistData"`
+}
+
+func (s RawSongStub) ToSongStub() SongStub {
+	return SongStub{
+		Title:               s.MusicTitle,
+		Artist:              s.ArtistData.DisplayName,
+		MusicImageDataPath:  s.MusicDataPath,
+		ArtistImageDataPath: s.ArtistData.ImageDataPath,
+	}
+}
+
+type SongStub struct {
+	Title               string `json:"title"`
+	Artist              string `json:"artist"`
+	MusicImageDataPath  string `json:"musicImageDataPath"`
+	ArtistImageDataPath string `json:"artistImageDataPath"`
+}
+
+func newHub(owner string) *Hub {
 	return &Hub{
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		Clients:    make(map[*Client]bool),
+		Owner:      owner,
+		Song: SongStub{
+			Artist:              "",
+			Title:               "",
+			MusicImageDataPath:  "",
+			ArtistImageDataPath: "",
+		},
+		Title: owner + "のルーム",
 	}
 }
 
@@ -179,6 +242,16 @@ func (h *Hub) run() {
 			if _, ok := h.Clients[client]; ok {
 				delete(h.Clients, client)
 				close(client.Send)
+
+				if len(h.Clients) == 0 {
+					// cleanup
+					close(h.Unregister)
+					close(h.Broadcast)
+					close(h.Register)
+					delete(hubs, h.Owner)
+					h = nil
+					return
+				}
 			}
 		case message := <-h.Broadcast:
 			for client := range h.Clients {
@@ -195,7 +268,7 @@ func (h *Hub) run() {
 
 func AttachHub(user string) {
 	hubs[user] = &AuthedHub{
-		Hub:       newHub(),
+		Hub:       newHub(user),
 		Owner:     user,
 		Blocklist: make(map[string]bool),
 	}
@@ -204,4 +277,25 @@ func AttachHub(user string) {
 
 func GetHub(user string) *AuthedHub {
 	return hubs[user]
+}
+
+type PublicHub struct {
+	Owner     string   `json:"owner"`
+	Title     string   `json:"title"`
+	Song      SongStub `json:"song"`
+	Listeners int      `json:"listeners"`
+}
+
+func GetHubs() []PublicHub {
+	var publicHubs []PublicHub
+	for _, hub := range hubs {
+		publicHubs = append(publicHubs, PublicHub{
+			Owner:     hub.Owner,
+			Title:     hub.Hub.Title,
+			Song:      hub.Hub.Song,
+			Listeners: len(hub.Hub.Clients),
+		})
+	}
+
+	return publicHubs
 }
