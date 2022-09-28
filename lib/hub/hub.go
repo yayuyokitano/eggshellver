@@ -105,6 +105,15 @@ func (c *Client) ReadPump(user queries.UserStub) {
 			}
 			c.Hub.Hub.Song = songStub.ToSongStub()
 		}
+		if message.Type == "setTitle" {
+			var title string
+			err = json.Unmarshal([]byte(message.Message), &title)
+			if err != nil {
+				websocketError(err)
+				break
+			}
+			c.Hub.Hub.Title = title
+		}
 
 		reply, err := json.Marshal(AuthedMessage{
 			Privileged: c.Hub.Owner == user.EggsID,
