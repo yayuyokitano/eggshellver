@@ -193,7 +193,7 @@ type Hub struct {
 
 type RawSongStub struct {
 	MusicTitle    string `json:"musicTitle"`
-	MusicDataPath string `json:"musicDataPath"`
+	ImageDataPath string `json:"imageDataPath"`
 	ArtistData    struct {
 		DisplayName   string `json:"displayName"`
 		ImageDataPath string `json:"imageDataPath"`
@@ -204,7 +204,7 @@ func (s RawSongStub) ToSongStub() SongStub {
 	return SongStub{
 		Title:               s.MusicTitle,
 		Artist:              s.ArtistData.DisplayName,
-		MusicImageDataPath:  s.MusicDataPath,
+		MusicImageDataPath:  s.ImageDataPath,
 		ArtistImageDataPath: s.ArtistData.ImageDataPath,
 	}
 }

@@ -29,7 +29,7 @@ func HandleWebsocket(endpoint string, method WebSocketEstablisher) {
 			handleCors(w)
 			se := method(w, r)
 			if se != nil {
-				logging.HandleError(*se, r, nil, t)
+				logging.HandleError(*se, r, []byte(""), t)
 				http.Error(w, se.Err.Error(), se.Code)
 				return
 			}
