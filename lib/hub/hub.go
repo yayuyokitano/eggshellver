@@ -96,23 +96,25 @@ func (c *Client) ReadPump(user queries.UserStub) {
 			websocketError(err)
 			break
 		}
-		if message.Type == "start" {
-			var songStub RawSongStub
-			err = json.Unmarshal([]byte(message.Message), &songStub)
-			if err != nil {
-				websocketError(err)
-				break
+		if user.EggsID == c.Hub.Owner.EggsID {
+			if message.Type == "start" {
+				var songStub RawSongStub
+				err = json.Unmarshal([]byte(message.Message), &songStub)
+				if err != nil {
+					websocketError(err)
+					break
+				}
+				c.Hub.Hub.Song = songStub.ToSongStub()
 			}
-			c.Hub.Hub.Song = songStub.ToSongStub()
-		}
-		if message.Type == "setTitle" {
-			var title string
-			err = json.Unmarshal([]byte(message.Message), &title)
-			if err != nil {
-				websocketError(err)
-				break
+			if message.Type == "setTitle" {
+				var title string
+				err = json.Unmarshal([]byte(message.Message), &title)
+				if err != nil {
+					websocketError(err)
+					break
+				}
+				c.Hub.Hub.Title = title
 			}
-			c.Hub.Hub.Title = title
 		}
 
 		reply, err := json.Marshal(AuthedMessage{
