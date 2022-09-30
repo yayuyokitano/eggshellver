@@ -22,7 +22,7 @@ func websocketError(err error) {
 
 type AuthedHub struct {
 	Hub       *Hub
-	Owner     string
+	Owner     queries.UserStub
 	Blocklist map[string]bool
 }
 
@@ -116,7 +116,7 @@ func (c *Client) ReadPump(user queries.UserStub) {
 		}
 
 		reply, err := json.Marshal(AuthedMessage{
-			Privileged: c.Hub.Owner == user.EggsID,
+			Privileged: c.Hub.Owner.EggsID == user.EggsID,
 			Blocked:    user.EggsID == "" || c.Hub.Blocklist[user.EggsID],
 			Sender:     user,
 			Message:    string(bytes.TrimSpace(bytes.Replace(rawMessage, newline, space, -1))),
@@ -191,7 +191,7 @@ type Hub struct {
 	Unregister chan *Client
 
 	// Owner of hub
-	Owner string
+	Owner queries.UserStub
 
 	// Currently playing song
 	Song SongStub
@@ -225,7 +225,7 @@ type SongStub struct {
 	ArtistImageDataPath string `json:"artistImageDataPath"`
 }
 
-func newHub(owner string) *Hub {
+func newHub(owner queries.UserStub) *Hub {
 	return &Hub{
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *Client),
@@ -238,7 +238,7 @@ func newHub(owner string) *Hub {
 			MusicImageDataPath:  "",
 			ArtistImageDataPath: "",
 		},
-		Title: owner + "のルーム",
+		Title: owner.EggsID + "のルーム",
 	}
 }
 
@@ -257,7 +257,7 @@ func (h *Hub) run() {
 					close(h.Unregister)
 					close(h.Broadcast)
 					close(h.Register)
-					delete(hubs, h.Owner)
+					delete(hubs, h.Owner.EggsID)
 					h = nil
 					return
 				}
@@ -275,13 +275,13 @@ func (h *Hub) run() {
 	}
 }
 
-func AttachHub(user string) {
-	hubs[user] = &AuthedHub{
-		Hub:       newHub(user),
-		Owner:     user,
+func AttachHub(userStub queries.UserStub) {
+	hubs[userStub.EggsID] = &AuthedHub{
+		Hub:       newHub(userStub),
+		Owner:     userStub,
 		Blocklist: make(map[string]bool),
 	}
-	go hubs[user].Hub.run()
+	go hubs[userStub.EggsID].Hub.run()
 }
 
 func GetHub(user string) *AuthedHub {
@@ -289,10 +289,10 @@ func GetHub(user string) *AuthedHub {
 }
 
 type PublicHub struct {
-	Owner     string   `json:"owner"`
-	Title     string   `json:"title"`
-	Song      SongStub `json:"song"`
-	Listeners int      `json:"listeners"`
+	Owner     queries.UserStub `json:"owner"`
+	Title     string           `json:"title"`
+	Song      SongStub         `json:"song"`
+	Listeners int              `json:"listeners"`
 }
 
 func GetHubs() []PublicHub {

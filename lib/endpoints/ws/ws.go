@@ -1,7 +1,6 @@
 package wsendpoint
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/yayuyokitano/eggshellver/lib/hub"
 	"github.com/yayuyokitano/eggshellver/lib/logging"
-	"github.com/yayuyokitano/eggshellver/lib/queries"
 	"github.com/yayuyokitano/eggshellver/lib/router"
 )
 
@@ -30,7 +28,7 @@ func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 		return logging.SE(http.StatusBadRequest, errors.New("please specify room to join"))
 	}
 
-	user, se := router.EggsIDFromToken(r)
+	userStub, se := router.UserStubFromToken(r)
 	if se != nil {
 		return se
 	}
@@ -38,19 +36,6 @@ func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 	targetHub := hub.GetHub(room)
 	if targetHub == nil {
 		return logging.SE(http.StatusBadRequest, errors.New("room does not exist"))
-	}
-
-	users, err := queries.GetUsers(context.Background(), []string{user}, []int{})
-	if err != nil {
-		return logging.SE(http.StatusInternalServerError, err)
-	}
-	if len(users) == 0 {
-		return logging.SE(http.StatusBadRequest, errors.New("user does not exist"))
-	}
-
-	userStub := users[0]
-	if userStub.EggsID != user {
-		return logging.SE(http.StatusBadRequest, errors.New("user does not exist"))
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -67,18 +52,12 @@ func Establish(w http.ResponseWriter, r *http.Request) *logging.StatusError {
 }
 
 func Create(w http.ResponseWriter, r *http.Request) *logging.StatusError {
-	userSplit := strings.Split(r.URL.Path, "/")
-	user := userSplit[len(userSplit)-2]
-	if user == "" {
-		return logging.SE(http.StatusBadRequest, errors.New("please specify room to create"))
-	}
-
-	err := router.AuthenticateSpecificUser(r)
+	userStub, err := router.AuthenticateSpecificUser(r)
 	if err != nil {
 		return err
 	}
 
-	hub.AttachHub(user)
+	hub.AttachHub(userStub)
 	return Establish(w, r)
 }
 

@@ -53,26 +53,40 @@ func AuthenticateDeleteRequest(r *http.Request, v *[]string) (eggsID string, sta
 	return
 }
 
-func AuthenticateSpecificUser(r *http.Request) (statusErr *logging.StatusError) {
+func AuthenticateSpecificUser(r *http.Request) (userStub queries.UserStub, se *logging.StatusError) {
 	authSplit := strings.Split(r.URL.Path, "/")
-	token := authSplit[len(authSplit)-1]
 	user := authSplit[len(authSplit)-2]
 
-	eggsID, err := authenticateUser("Bearer " + token)
-	if err != nil || eggsID != user {
-		statusErr = logging.SE(http.StatusUnauthorized, err)
+	if user == "" {
+		se = logging.SE(http.StatusBadRequest, errors.New("please specify user to authenticate"))
+		return
 	}
+
+	userStub, se = UserStubFromToken(r)
+	if se != nil {
+		return
+	}
+	if userStub.EggsID != user {
+		se = logging.SE(http.StatusUnauthorized, errors.New("failed to authenticate user"))
+	}
+
 	return
 }
 
-func EggsIDFromToken(r *http.Request) (eggsID string, statusErr *logging.StatusError) {
+func UserStubFromToken(r *http.Request) (userStub queries.UserStub, statusErr *logging.StatusError) {
 	authSplit := strings.Split(r.URL.Path, "/")
 	token := authSplit[len(authSplit)-1]
 
-	eggsID, err := authenticateUser("Bearer " + token)
+	userStubs, err := queries.GetUserStubFromToken(context.Background(), token)
 	if err != nil {
 		statusErr = logging.SE(http.StatusUnauthorized, err)
+		return
 	}
+	if len(userStubs) == 0 {
+		statusErr = logging.SE(http.StatusUnauthorized, errors.New("failed to authenticate user"))
+		return
+	}
+	userStub = userStubs[0]
 	return
 }
 

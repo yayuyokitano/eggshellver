@@ -278,6 +278,27 @@ func GetUsers(ctx context.Context, eggsids []string, userids []int) (output []Us
 	return
 }
 
+func GetUserStubFromToken(ctx context.Context, token string) (output []UserStub, err error) {
+	tx, err := fetchTransaction()
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = pgxscan.Select(
+		ctx,
+		tx,
+		&output,
+		"SELECT user_id, eggs_id, display_name, is_artist, image_data_path, prefecture_code, profile_text FROM users WHERE token = $1",
+		token,
+	)
+	if err != nil {
+		RollbackTransaction(tx)
+		return
+	}
+	err = commitTransaction(tx)
+	return
+}
+
 func GetEggsIDByToken(ctx context.Context, token string) (eggsID string, err error) {
 	tx, err := fetchTransaction()
 	if err != nil {
