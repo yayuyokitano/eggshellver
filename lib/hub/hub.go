@@ -125,6 +125,17 @@ func (c *Client) ReadPump(user queries.UserStub) {
 					c.Hub.Hub.Blocklist[blockedUser] = true
 				}
 			}
+			if message.Type == "unblockedUsers" {
+				var unblockedUsers []string
+				err = json.Unmarshal([]byte(message.Message), &unblockedUsers)
+				if err != nil {
+					websocketError(err)
+					break
+				}
+				for _, unblockedUser := range unblockedUsers {
+					delete(c.Hub.Hub.Blocklist, unblockedUser)
+				}
+			}
 		}
 
 		reply, err := json.Marshal(AuthedMessage{
