@@ -21,9 +21,8 @@ func websocketError(err error) {
 }
 
 type AuthedHub struct {
-	Hub       *Hub
-	Owner     queries.UserStub
-	Blocklist map[string]bool
+	Hub   *Hub
+	Owner queries.UserStub
 }
 
 var (
@@ -115,11 +114,22 @@ func (c *Client) ReadPump(user queries.UserStub) {
 				}
 				c.Hub.Hub.Title = title
 			}
+			if message.Type == "blockedUsers" {
+				var blockedUsers []string
+				err = json.Unmarshal([]byte(message.Message), &blockedUsers)
+				if err != nil {
+					websocketError(err)
+					break
+				}
+				for _, blockedUser := range blockedUsers {
+					c.Hub.Hub.Blocklist[blockedUser] = true
+				}
+			}
 		}
 
 		reply, err := json.Marshal(AuthedMessage{
 			Privileged: c.Hub.Owner.EggsID == user.EggsID,
-			Blocked:    user.EggsID == "" || c.Hub.Blocklist[user.EggsID],
+			Blocked:    user.EggsID == "" || c.Hub.Hub.Blocklist[user.EggsID],
 			Sender:     user,
 			Message:    string(bytes.TrimSpace(bytes.Replace(rawMessage, newline, space, -1))),
 		})
@@ -200,6 +210,9 @@ type Hub struct {
 
 	// Room title
 	Title string
+
+	// Blocklist
+	Blocklist map[string]bool
 }
 
 type RawSongStub struct {
@@ -240,7 +253,8 @@ func newHub(owner queries.UserStub) *Hub {
 			MusicImageDataPath:  "",
 			ArtistImageDataPath: "",
 		},
-		Title: owner.EggsID + "のルーム",
+		Title:     owner.EggsID + "のルーム",
+		Blocklist: make(map[string]bool),
 	}
 }
 
@@ -279,9 +293,8 @@ func (h *Hub) run() {
 
 func AttachHub(userStub queries.UserStub) {
 	hubs[userStub.EggsID] = &AuthedHub{
-		Hub:       newHub(userStub),
-		Owner:     userStub,
-		Blocklist: make(map[string]bool),
+		Hub:   newHub(userStub),
+		Owner: userStub,
 	}
 	go hubs[userStub.EggsID].Hub.run()
 }
