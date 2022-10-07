@@ -48,8 +48,6 @@ func main() {
 	hub.Init()
 	defer services.Stop()
 	fmt.Println("Connected to Postgres!")
-	fmt.Println("===========")
-	fmt.Println("eggshellver v0.1.0")
 
 	startServer()
 }
@@ -121,6 +119,8 @@ func startServer() {
 
 	go logging.ServeLogs()
 	go cachecreator.StartCacheLoop(1 * time.Hour)
+	fmt.Println("===========")
+	fmt.Println("eggshellver v0.1.0")
 	http.ListenAndServeTLS(":10000", "cert.pem", "key.pem", nil)
 }
 

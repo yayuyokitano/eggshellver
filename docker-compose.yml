@@ -12,14 +12,18 @@ services:
       - 2112:2112
     image: yayuyokitano/golang:1.18.3-alpine3.16
     platform: linux/amd64
-    #deploy:
-      #restart_policy:
-        #condition: on-failure
+    volumes:
+      - ./logs:/eggshellver/logs
+    deploy:
+      restart_policy:
+        condition: on-failure
   
   grafana:
     image: grafana/grafana
     ports:
       - 3000:3000
+    volumes:
+      - grafana:/var/lib/grafana
   
   prometheus:
     image: prom/prometheus
@@ -35,7 +39,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - db:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
   
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter
@@ -48,5 +52,6 @@ services:
       - prometheus
 
 volumes:
-  db:
+  db-data:
     driver: local
+  grafana:

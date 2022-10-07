@@ -3,7 +3,6 @@ package logging
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -78,49 +77,49 @@ var (
 func setUserCounts() {
 	authedCount, err := queries.GetAuthenticatedUserCount(context.Background())
 	if err != nil {
-		log.Println(err)
+		metricError("authenticateduser", err)
 		return
 	}
 	authenticatedUserCount.Set(float64(authedCount))
 
 	cachedCount, err := queries.GetCachedUserCount(context.Background())
 	if err != nil {
-		log.Println(err)
+		metricError("cacheduser", err)
 		return
 	}
 	cachedUserCount.Set(float64(cachedCount))
 
 	follow, err := queries.GetFollowCount(context.Background())
 	if err != nil {
-		log.Println(err)
+		metricError("follow", err)
 		return
 	}
 	followCount.Set(float64(follow))
 
 	playlistLike, err := queries.GetLikeCount(context.Background(), "playlist")
 	if err != nil {
-		log.Println(err)
+		metricError("playlistlike", err)
 		return
 	}
 	playlistLikeCount.Set(float64(playlistLike))
 
 	trackLike, err := queries.GetLikeCount(context.Background(), "track")
 	if err != nil {
-		log.Println(err)
+		metricError("tracklike", err)
 		return
 	}
 	trackLikeCount.Set(float64(trackLike))
 
 	playlists, err := queries.GetPlaylistCount(context.Background())
 	if err != nil {
-		log.Println(err)
+		metricError("playlist", err)
 		return
 	}
 	playlistCount.Set(float64(playlists))
 
 	songs, err := queries.GetSongCount(context.Background())
 	if err != nil {
-		log.Println(err)
+		metricError("song", err)
 		return
 	}
 	songCount.Set(float64(songs))

@@ -3,10 +3,11 @@ package hub
 import (
 	"bytes"
 	"encoding/json"
-	"log"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
 )
 
@@ -14,10 +15,6 @@ var hubs map[string]*AuthedHub
 
 func Init() {
 	hubs = make(map[string]*AuthedHub)
-}
-
-func websocketError(err error) {
-	log.Println(err)
 }
 
 type AuthedHub struct {
@@ -84,7 +81,7 @@ func (c *Client) ReadPump(user queries.UserStub) {
 		_, rawMessage, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				websocketError(err)
+				logging.WebsocketError(err)
 			}
 			break
 		}
@@ -92,15 +89,26 @@ func (c *Client) ReadPump(user queries.UserStub) {
 		var message RawMessage
 		err = json.Unmarshal(rawMessage, &message)
 		if err != nil {
-			websocketError(err)
+			logging.WebsocketError(err)
 			break
 		}
+
+		if message.Type == "chat" {
+			var chatMessage string
+			err = json.Unmarshal([]byte(message.Message), &chatMessage)
+			if err != nil {
+				logging.WebsocketError(err)
+				break
+			}
+			logging.WebsocketMessage("chat", user.EggsID, chatMessage)
+		}
+
 		if user.EggsID == c.Hub.Owner.EggsID {
 			if message.Type == "start" {
 				var songStub RawSongStub
 				err = json.Unmarshal([]byte(message.Message), &songStub)
 				if err != nil {
-					websocketError(err)
+					logging.WebsocketError(err)
 					break
 				}
 				c.Hub.Hub.Song = songStub.ToSongStub()
@@ -109,7 +117,7 @@ func (c *Client) ReadPump(user queries.UserStub) {
 				var title string
 				err = json.Unmarshal([]byte(message.Message), &title)
 				if err != nil {
-					websocketError(err)
+					logging.WebsocketError(err)
 					break
 				}
 				c.Hub.Hub.Title = title
@@ -118,9 +126,10 @@ func (c *Client) ReadPump(user queries.UserStub) {
 				var blockedUsers []string
 				err = json.Unmarshal([]byte(message.Message), &blockedUsers)
 				if err != nil {
-					websocketError(err)
+					logging.WebsocketError(err)
 					break
 				}
+				logging.WebsocketMessage("blockedUsers", user.EggsID, strings.Join(blockedUsers, ","))
 				for _, blockedUser := range blockedUsers {
 					c.Hub.Hub.Blocklist[blockedUser] = true
 				}
@@ -129,7 +138,7 @@ func (c *Client) ReadPump(user queries.UserStub) {
 				var unblockedUsers []string
 				err = json.Unmarshal([]byte(message.Message), &unblockedUsers)
 				if err != nil {
-					websocketError(err)
+					logging.WebsocketError(err)
 					break
 				}
 				for _, unblockedUser := range unblockedUsers {
@@ -145,7 +154,7 @@ func (c *Client) ReadPump(user queries.UserStub) {
 			Message:    string(bytes.TrimSpace(bytes.Replace(rawMessage, newline, space, -1))),
 		})
 		if err != nil {
-			websocketError(err)
+			logging.WebsocketError(err)
 			break
 		}
 		c.Hub.Hub.Broadcast <- reply

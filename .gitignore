@@ -23,3 +23,6 @@
 # certificate and key
 cert.pem
 key.pem
+
+# logs
+logs/

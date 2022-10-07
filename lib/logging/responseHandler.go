@@ -2,8 +2,9 @@ package logging
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -25,7 +26,12 @@ func SE(code int, err error) *StatusError {
 
 func HandleError(bubbledErr StatusError, r *http.Request, b []byte, t time.Time) {
 	opsRequestsErrored.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(bubbledErr.Code)).Inc()
-	log.Println(time.Since(t).String(), bubbledErr.Code, bubbledErr.Err.Error(), r.Method, r.URL.Path, r.URL.Query(), string(b))
+	logger.Error().Err(bubbledErr.Err).
+		Str("method", r.Method).
+		Str("path", r.URL.Path).
+		Str("query", r.URL.Query().Encode()).
+		Str("body", string(censorKey(b, `"`))).
+		Msg("requesterrpr")
 }
 
 func censorKey(b []byte, endChar string) []byte {
@@ -40,37 +46,84 @@ func censorJSON(b []byte, keys []string) []byte {
 
 func LogRequest(r *http.Request, b []byte) {
 	opsRequestsReceived.WithLabelValues(r.Method, r.URL.Path).Inc()
-	//log.Println(r.Method, r.URL.Path, r.URL.Query(), string(censorKey(b, `"`)))
+	logger.Debug().
+		Str("method", r.Method).
+		Str("path", r.URL.Path).
+		Str("query", r.URL.Query().Encode()).
+		Msg("request")
 }
 
 func LogRequestCompletion(w bytes.Buffer, r *http.Request, t time.Time) {
 	opsRequestsCompleted.WithLabelValues(r.Method, r.URL.Path).Observe(time.Since(t).Seconds())
-	//log.Println(time.Since(t).String(), "complete: ", r.Method, r.URL.Path, r.URL.Query(), w.String())
+	logger.Debug().
+		Str("method", r.Method).
+		Str("path", r.URL.Path).
+		Str("query", r.URL.Query().Encode()).
+		Msg("requestcomplete")
 }
 
 func LogFetch(r *http.Request) {
 	opsFetches.WithLabelValues(r.Method, r.URL.Path).Inc()
-	/*h := make([]byte, 0)
+	h := make([]byte, 0)
 	for k, v := range r.Header {
 		val := k + ": " + strings.Join(v, ".") + ", "
 		h = append(h, []byte(val)...)
-	}*/
-	//log.Println(r.URL.String(), " ", r.Method, " ", string(censorKey(h, ",")))
+	}
+	logger.Debug().
+		Str("method", r.Method).
+		Str("path", r.URL.Path).
+		Str("query", r.URL.Query().Encode()).
+		Str("headers", string(h)).
+		Msg("fetch")
 }
 
 func LogFetchErrored(r *http.Request, resp *http.Response) {
-	log.Print(r.Body, " ", r.Method, " ", r.URL.String())
 	if resp != nil {
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logger.Error().Err(errors.New("no response body")).
+				Str("method", r.Method).
+				Str("path", r.URL.Path).
+				Str("query", r.URL.Query().Encode()).
+				Int("status", resp.StatusCode).
+				Msg("fetcherrpr")
+		}
 		opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(resp.StatusCode)).Inc()
+		logger.Error().Err(errors.New(string(b))).
+			Int("status", resp.StatusCode).
+			Str("method", r.Method).
+			Str("path", r.URL.Path).
+			Str("query", r.URL.Query().Encode()).
+			Msg("fetcherrpr")
 	} else {
 		opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, "0").Inc()
+		logger.Error().Err(errors.New("no response")).
+			Str("method", r.Method).
+			Str("path", r.URL.Path).
+			Str("query", r.URL.Query().Encode()).
+			Msg("fetcherrpr")
 	}
-	//log.Println(r.Method, r.URL.String())
 }
 
 func LogFetchCompleted(resp *http.Response, b []byte, t time.Time) {
 	opsFetchesCompleted.WithLabelValues(resp.Request.Method, resp.Request.URL.Path).Observe(time.Since(t).Seconds())
-	//log.Print(time.Since(t).String(), resp.Request.Body, " ", resp.Request.Method, " ", resp.Request.URL.String(), " ", string(censorJSON(b, []string{"mail", "birthDate", "gender"})))
+	logger.Debug().
+		Str("method", resp.Request.Method).
+		Str("path", resp.Request.URL.Path).
+		Str("query", resp.Request.URL.Query().Encode()).
+		Msg("fetchcomplete")
+}
+
+func WebsocketError(err error) {
+	logger.Error().Err(err).Msg("websocketerror")
+}
+
+func WebsocketMessage(msgType string, sender string, content string) {
+	logger.Debug().Str("type", msgType).Str("sender", sender).Str("content", content).Msg("websocketmessage")
+}
+
+func metricError(metricType string, err error) {
+	logger.Error().Err(err).Str("type", metricType).Msg("metricerror")
 }
 
 func AddCachedUsers(count int) {
@@ -106,6 +159,6 @@ func CompleteCache() {
 }
 
 func FailCache(err error) {
-	log.Println(err)
+	logger.Error().Err(err).Msg("cacheerrpr")
 	opPartialCacheErrored.Inc()
 }
