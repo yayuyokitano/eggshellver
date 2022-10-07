@@ -89,6 +89,12 @@ func startServer() {
 		POST:   userendpoint.Post,
 		GET:    userendpoint.Get,
 		PUT:    router.ReturnMethodNotAllowed,
+		DELETE: userendpoint.Delete,
+	})
+	router.Handle("/twitterauth", router.Methods{
+		POST:   userendpoint.PostTwitter,
+		GET:    router.ReturnMethodNotAllowed,
+		PUT:    router.ReturnMethodNotAllowed,
 		DELETE: router.ReturnMethodNotAllowed,
 	})
 	router.Handle("/userstubs", router.Methods{

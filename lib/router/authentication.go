@@ -90,6 +90,14 @@ func UserStubFromToken(r *http.Request) (userStub queries.UserStub, statusErr *l
 	return
 }
 
+func AuthenticateRequestOnly(r *http.Request) (eggsID string, statusErr *logging.StatusError) {
+	eggsID, err := authenticateUser(r.Header.Get("Authorization"))
+	if err != nil {
+		statusErr = logging.SE(http.StatusUnauthorized, err)
+	}
+	return
+}
+
 func authenticateUser(bearer string) (eggsID string, err error) {
 	eggsID, err = queries.GetEggsIDByToken(context.Background(), bearer[7:])
 	return

@@ -11,6 +11,7 @@ import (
 
 	"github.com/yayuyokitano/eggshellver/lib/logging"
 	"github.com/yayuyokitano/eggshellver/lib/queries"
+	"github.com/yayuyokitano/eggshellver/lib/router"
 )
 
 type Auth struct {
@@ -123,6 +124,30 @@ func Post(w io.Writer, r *http.Request, b []byte) *logging.StatusError {
 	}
 
 	fmt.Fprint(w, `"`+token+`"`)
+	return nil
+}
+
+func Delete(w io.Writer, r *http.Request, _ []byte) *logging.StatusError {
+	eggsid := r.URL.Query().Get("eggsid")
+	if eggsid == "" {
+		return logging.SE(http.StatusBadRequest, errors.New("no user specified"))
+	}
+
+	tokenAccount, se := router.AuthenticateRequestOnly(r)
+	if se != nil {
+		return se
+	}
+
+	if eggsid != tokenAccount {
+		return logging.SE(http.StatusUnauthorized, errors.New("unauthorized"))
+	}
+
+	err := queries.UNSAFEDeleteUser(context.Background(), eggsid)
+	if err != nil {
+		return logging.SE(http.StatusInternalServerError, err)
+	}
+
+	w.Write([]byte(`"Successfully deleted user ` + eggsid + `"`))
 	return nil
 }
 

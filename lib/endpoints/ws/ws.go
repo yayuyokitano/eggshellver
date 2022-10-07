@@ -17,7 +17,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return r.Header.Get("Origin") == "https://eggs.mu"
+		return true //firefox doesn't allow me to do a proper check, as it sends a null origin
 	},
 }
 
