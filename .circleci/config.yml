@@ -1,16 +1,17 @@
-version: 2
+version: 2.1
 jobs:
   deploy:
-    - image: cimg/base:2020.01
-  steps:
-    - run:
-      name: Deploy
-      command: |
-        ssh -o StrictHostKeyChecking=no root@$EGGSHELLVER_HOST_IP "cd ./eggshellver && /bin/bash ./deploy.sh"
+    docker:
+      - image: cimg/base:2020.01
+    steps:
+      - run:
+        name: Deploy
+        command: |
+          ssh -o StrictHostKeyChecking=no root@$EGGSHELLVER_HOST_IP "cd ./eggshellver && /bin/bash ./deploy.sh"
 
 
 workflows:
-  version: 2
+  version: 2.1
   deploy:
     jobs:
       - approve:
