@@ -4,6 +4,9 @@ jobs:
     docker:
       - image: cimg/base:2020.01
     steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "11:85:ef:3c:d8:66:58:d7:45:35:1b:2e:58:0c:2a:d8"
       - run:
           name: Deploy
           command: |
