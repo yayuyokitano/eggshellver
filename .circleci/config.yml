@@ -1,8 +1,8 @@
 version: 2.1
 jobs:
   deploy:
-    docker:
-      - image: cimg/base:2020.01
+    machine:
+      - enabled: true
     steps:
       - run:
           name: Fix ssh Could not resolve hostname
