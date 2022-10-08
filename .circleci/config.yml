@@ -4,7 +4,7 @@ jobs:
     docker:
       - image: cimg/base:2020.01
     steps:
-       - run:
+      - run:
           name: Fix ssh Could not resolve hostname
           command: |
             ssh-keyscan $EGGSHELLVER_HOST_IP >> ~/.ssh/known_hosts
