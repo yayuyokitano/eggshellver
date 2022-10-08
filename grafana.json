@@ -240,11 +240,23 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "builder",
+          "expr": "eggshellver_song_count",
+          "hide": false,
+          "legendFormat": "Cached Songs",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
           "expr": "eggshellver_playlist_like_count",
           "hide": false,
           "legendFormat": "Liked Playlists",
           "range": true,
-          "refId": "C"
+          "refId": "D"
         },
         {
           "datasource": {
@@ -256,7 +268,7 @@
           "hide": false,
           "legendFormat": "Liked Tracks",
           "range": true,
-          "refId": "D"
+          "refId": "E"
         }
       ],
       "title": "Stats",
@@ -999,8 +1011,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "avg(eggshellver_requests_completed_sum)",
+          "editorMode": "code",
+          "expr": "sum(rate(eggshellver_requests_completed_sum[5m])) / sum(rate(eggshellver_requests_completed_count[5m]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1244,7 +1256,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1337,7 +1350,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1429,7 +1443,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1492,7 +1507,8 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "blue"
+                "color": "blue",
+                "value": null
               },
               {
                 "color": "purple",
@@ -1606,7 +1622,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           }
@@ -1769,7 +1786,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1806,8 +1824,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "avg by() (eggshellver_fetches_completed_sum)",
+          "editorMode": "code",
+          "expr": "sum(rate(eggshellver_fetches_completed_sum[5m])) / sum(rate(eggshellver_fetches_completed_count[5m]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1863,7 +1881,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1956,7 +1975,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2049,7 +2069,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2142,7 +2163,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2234,7 +2256,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
