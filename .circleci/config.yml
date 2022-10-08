@@ -5,9 +5,9 @@ jobs:
       - image: cimg/base:2020.01
     steps:
       - run:
-        name: Deploy
-        command: |
-          ssh -o StrictHostKeyChecking=no root@$EGGSHELLVER_HOST_IP "cd ./eggshellver && /bin/bash ./deploy.sh"
+          name: Deploy
+          command: |
+            ssh -o StrictHostKeyChecking=no root@$EGGSHELLVER_HOST_IP "cd ./eggshellver && /bin/bash ./deploy.sh"
 
 
 workflows:
