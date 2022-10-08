@@ -121,7 +121,7 @@ func startServer() {
 	go cachecreator.StartCacheLoop(1 * time.Hour)
 	fmt.Println("===========")
 	fmt.Println("eggshellver v0.1.0")
-	http.ListenAndServeTLS(":10000", "cert.pem", "key.pem", nil)
+	http.ListenAndServe(":10000", nil)
 }
 
 func performMigration(firstTime bool) {

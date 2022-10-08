@@ -31,7 +31,7 @@ func HandleError(bubbledErr StatusError, r *http.Request, b []byte, t time.Time)
 		Str("path", r.URL.Path).
 		Str("query", r.URL.Query().Encode()).
 		Str("body", string(censorKey(b, `"`))).
-		Msg("requesterrpr")
+		Msg("requesterror")
 }
 
 func censorKey(b []byte, endChar string) []byte {
@@ -86,7 +86,7 @@ func LogFetchErrored(r *http.Request, resp *http.Response) {
 				Str("path", r.URL.Path).
 				Str("query", r.URL.Query().Encode()).
 				Int("status", resp.StatusCode).
-				Msg("fetcherrpr")
+				Msg("fetcherror")
 		}
 		opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(resp.StatusCode)).Inc()
 		logger.Error().Err(errors.New(string(b))).
@@ -94,14 +94,14 @@ func LogFetchErrored(r *http.Request, resp *http.Response) {
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Str("query", r.URL.Query().Encode()).
-			Msg("fetcherrpr")
+			Msg("fetcherror")
 	} else {
 		opsFetchesErrored.WithLabelValues(r.Method, r.URL.Path, "0").Inc()
 		logger.Error().Err(errors.New("no response")).
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Str("query", r.URL.Query().Encode()).
-			Msg("fetcherrpr")
+			Msg("fetcherror")
 	}
 }
 
@@ -159,6 +159,6 @@ func CompleteCache() {
 }
 
 func FailCache(err error) {
-	logger.Error().Err(err).Msg("cacheerrpr")
+	logger.Error().Err(err).Msg("cacheerror")
 	opPartialCacheErrored.Inc()
 }
