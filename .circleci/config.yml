@@ -7,7 +7,7 @@ jobs:
       - run:
           name: Deploy
           command: |
-            ssh -o StrictHostKeyChecking=no root@$EGGSHELLVER_HOST_IP "cd /root/eggshellver && /bin/bash ./deploy.sh"
+            ssh root@$EGGSHELLVER_HOST_IP "cd /root/eggshellver && /bin/bash ./deploy.sh"
 
 
 workflows:
