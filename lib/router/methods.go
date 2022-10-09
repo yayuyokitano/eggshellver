@@ -26,7 +26,7 @@ func HandleWebsocket(endpoint string, method WebSocketEstablisher) {
 		case "GET":
 			logging.LogRequest(r, nil)
 			t := time.Now()
-			handleCors(w)
+			handleCors(w, r)
 			se := method(w, r)
 			if se != nil {
 				logging.HandleError(*se, r, []byte(""), t)
@@ -73,7 +73,7 @@ func HandleMethod(m HTTPImplementer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logging.LogRequest(r, b)
-	handleCors(w)
+	handleCors(w, r)
 
 	var log bytes.Buffer
 	mw := io.MultiWriter(w, &log)
@@ -94,8 +94,14 @@ func ReturnMethodNotAllowed(w io.Writer, r *http.Request, _ []byte) *logging.Sta
 	return logging.SE(http.StatusMethodNotAllowed, fmt.Errorf("method %s is not allowed", r.Method))
 }
 
-func handleCors(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "https://eggs.mu")
+func handleCors(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Origin") == "https://eggs.mu" {
+		w.Header().Set("Access-Control-Allow-Origin", "https://eggs.mu")
+	}
+	if r.Header.Get("Origin") == "chrome-extension://pmfgobndalcnigpecmbkpjkejehccdal" {
+		w.Header().Set("Access-Control-Allow-Origin", "chrome-extension://pmfgobndalcnigpecmbkpjkejehccdal")
+	}
+
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Authorization")
 }
