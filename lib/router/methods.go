@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/yayuyokitano/eggshellver/lib/logging"
@@ -98,8 +99,9 @@ func handleCors(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Origin") == "https://eggs.mu" {
 		w.Header().Set("Access-Control-Allow-Origin", "https://eggs.mu")
 	}
-	if r.Header.Get("Origin") == "chrome-extension://pmfgobndalcnigpecmbkpjkejehccdal" {
-		w.Header().Set("Access-Control-Allow-Origin", "chrome-extension://pmfgobndalcnigpecmbkpjkejehccdal")
+	//TODO: specify the extension IDs
+	if strings.Contains(r.Header.Get("Origin"), "moz-extension://") || strings.Contains(r.Header.Get("Origin"), "chrome-extension://") || strings.Contains(r.Header.Get("Origin"), "safari-web-extension://") {
+		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	}
 
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, OPTIONS")
